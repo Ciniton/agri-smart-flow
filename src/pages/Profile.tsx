@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,11 +8,30 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/hooks/use-toast';
-import { User, CreditCard, CalendarClock, Upload, Check, AlertTriangle } from 'lucide-react';
+import { User, CreditCard, CalendarClock, Upload, Check, AlertTriangle, CreditCard as CreditCardIcon, Lock } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const ProfilePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [isEditing, setIsEditing] = useState(false);
+  const [isChangingCard, setIsChangingCard] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
   
   // Mock user data - in a real app, this would come from your auth context
   const [userData, setUserData] = useState({
@@ -30,6 +48,38 @@ const ProfilePage: React.FC = () => {
       paymentMethod: 'Visa ending in 4242'
     }
   });
+
+  // Payment form states
+  const [cardDetails, setCardDetails] = useState({
+    cardNumber: '',
+    cardName: '',
+    expiryDate: '',
+    cvc: ''
+  });
+
+  // Plan details 
+  const plans = [
+    {
+      id: 'basic',
+      name: 'Basic Plan',
+      price: 9.99,
+      features: ['Basic field mapping', 'Manual irrigation control', 'Weather data', 'Up to 5 connected devices']
+    },
+    {
+      id: 'professional',
+      name: 'Professional Plan',
+      price: 29.99,
+      features: ['Unlimited field mapping', 'Advanced irrigation control', 'Weather data integration', 'Up to 25 connected devices']
+    },
+    {
+      id: 'enterprise',
+      name: 'Enterprise Plan',
+      price: 79.99,
+      features: ['Unlimited field mapping', 'AI irrigation optimization', 'Advanced analytics', 'Unlimited connected devices', 'Priority support']
+    }
+  ];
+  
+  const [selectedPlan, setSelectedPlan] = useState(plans[1]); // Default to Professional
 
   const handleSaveProfile = () => {
     setIsEditing(false);
@@ -53,17 +103,68 @@ const ProfilePage: React.FC = () => {
   };
 
   const handleUpgradeSubscription = () => {
+    setIsUpgrading(true);
+  };
+
+  const handleProcessPayment = () => {
+    // Validate card details
+    if (!cardDetails.cardNumber || !cardDetails.cardName || !cardDetails.expiryDate || !cardDetails.cvc) {
+      toast({
+        title: "Invalid Card Details",
+        description: "Please fill in all the card information fields.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Process payment (mock)
     toast({
-      title: "Upgrade Subscription",
-      description: "This would redirect to a payment page in a complete implementation."
+      title: "Payment Processing",
+      description: "Processing your payment details..."
     });
+
+    // Simulate payment processing
+    setTimeout(() => {
+      toast({
+        title: "Payment Successful",
+        description: `You have successfully subscribed to the ${selectedPlan.name}.`
+      });
+      
+      // Update user data with new subscription
+      setUserData({
+        ...userData,
+        subscription: {
+          ...userData.subscription,
+          plan: selectedPlan.name,
+          nextBilling: new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]
+        }
+      });
+      
+      setIsUpgrading(false);
+      setIsChangingCard(false);
+    }, 1500);
   };
 
   const handleCancelSubscription = () => {
     toast({
-      title: "Cancel Subscription",
+      title: "Subscription Cancelled",
       description: "Your subscription will remain active until the end of the billing period."
     });
+    
+    // Update subscription status (in a real app, this would call an API)
+    setUserData({
+      ...userData,
+      subscription: {
+        ...userData.subscription,
+        status: 'cancelled'
+      }
+    });
+    
+    setShowCancelDialog(false);
+  };
+
+  const handleUpdatePaymentMethod = () => {
+    setIsChangingCard(true);
   };
 
   return (
@@ -182,7 +283,9 @@ const ProfilePage: React.FC = () => {
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle>Subscription Plan</CardTitle>
-                <Badge className="bg-green-500">{userData.subscription.status === 'active' ? 'Active' : 'Inactive'}</Badge>
+                <Badge className={userData.subscription.status === 'active' ? "bg-green-500" : "bg-red-500"}>
+                  {userData.subscription.status === 'active' ? 'Active' : 'Canceled'}
+                </Badge>
               </div>
               <CardDescription>Manage your subscription details and payment method</CardDescription>
             </CardHeader>
@@ -232,19 +335,193 @@ const ProfilePage: React.FC = () => {
                     <Button onClick={handleUpgradeSubscription}>
                       Upgrade Plan
                     </Button>
-                    <Button variant="outline" onClick={handleCancelSubscription}>
+                    <Button variant="outline" onClick={() => setShowCancelDialog(true)}>
                       Cancel Subscription
                     </Button>
                   </div>
                 </div>
               </div>
 
+              <Button variant="outline" className="w-full" onClick={handleUpdatePaymentMethod}>
+                <CreditCardIcon className="mr-2 h-4 w-4" />
+                Update Payment Method
+              </Button>
+
+              {/* Payment Method Change Dialog */}
+              <Dialog open={isChangingCard} onOpenChange={setIsChangingCard}>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Update Payment Method</DialogTitle>
+                    <DialogDescription>
+                      Enter your new payment details below.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="cardName">Name on Card</Label>
+                      <Input
+                        id="cardName"
+                        placeholder="John Doe"
+                        value={cardDetails.cardName}
+                        onChange={(e) => setCardDetails({...cardDetails, cardName: e.target.value})}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cardNumber">Card Number</Label>
+                      <Input
+                        id="cardNumber"
+                        placeholder="4242 4242 4242 4242"
+                        value={cardDetails.cardNumber}
+                        onChange={(e) => setCardDetails({...cardDetails, cardNumber: e.target.value})}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="expiryDate">Expiry Date</Label>
+                        <Input
+                          id="expiryDate"
+                          placeholder="MM/YY"
+                          value={cardDetails.expiryDate}
+                          onChange={(e) => setCardDetails({...cardDetails, expiryDate: e.target.value})}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="cvc">CVC</Label>
+                        <Input
+                          id="cvc"
+                          placeholder="123"
+                          value={cardDetails.cvc}
+                          onChange={(e) => setCardDetails({...cardDetails, cvc: e.target.value})}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsChangingCard(false)}>Cancel</Button>
+                    <Button onClick={handleProcessPayment}>Update Payment Method</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              {/* Upgrade Subscription Dialog */}
+              <Dialog open={isUpgrading} onOpenChange={setIsUpgrading}>
+                <DialogContent className="sm:max-w-[600px]">
+                  <DialogHeader>
+                    <DialogTitle>Upgrade Your Subscription</DialogTitle>
+                    <DialogDescription>
+                      Choose a plan that fits your needs and enter your payment details.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-6 py-4">
+                    <div className="space-y-2">
+                      <Label>Select a Plan</Label>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                        {plans.map((plan) => (
+                          <Card 
+                            key={plan.id} 
+                            className={`cursor-pointer hover:border-primary ${selectedPlan.id === plan.id ? 'border-2 border-primary' : ''}`}
+                            onClick={() => setSelectedPlan(plan)}
+                          >
+                            <CardHeader className="p-4">
+                              <CardTitle className="text-lg">{plan.name}</CardTitle>
+                              <CardDescription>${plan.price}/month</CardDescription>
+                            </CardHeader>
+                            <CardContent className="p-4 pt-0">
+                              <ul className="space-y-2 text-sm">
+                                {plan.features.map((feature, i) => (
+                                  <li key={i} className="flex items-start">
+                                    <Check className="h-4 w-4 text-green-500 mr-2 mt-0.5" />
+                                    <span>{feature}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <Separator />
+                    
+                    <div>
+                      <div className="flex items-center mb-4">
+                        <Lock className="mr-2 h-4 w-4" />
+                        <h3 className="font-medium">Payment Details</h3>
+                      </div>
+                      <div className="grid gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="upgCardName">Name on Card</Label>
+                          <Input
+                            id="upgCardName"
+                            placeholder="John Doe"
+                            value={cardDetails.cardName}
+                            onChange={(e) => setCardDetails({...cardDetails, cardName: e.target.value})}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="upgCardNumber">Card Number</Label>
+                          <Input
+                            id="upgCardNumber"
+                            placeholder="4242 4242 4242 4242"
+                            value={cardDetails.cardNumber}
+                            onChange={(e) => setCardDetails({...cardDetails, cardNumber: e.target.value})}
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="upgExpiryDate">Expiry Date</Label>
+                            <Input
+                              id="upgExpiryDate"
+                              placeholder="MM/YY"
+                              value={cardDetails.expiryDate}
+                              onChange={(e) => setCardDetails({...cardDetails, expiryDate: e.target.value})}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="upgCvc">CVC</Label>
+                            <Input
+                              id="upgCvc"
+                              placeholder="123"
+                              value={cardDetails.cvc}
+                              onChange={(e) => setCardDetails({...cardDetails, cvc: e.target.value})}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsUpgrading(false)}>Cancel</Button>
+                    <Button onClick={handleProcessPayment}>
+                      Subscribe to {selectedPlan.name} (${selectedPlan.price}/month)
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              {/* Cancel Subscription Confirmation Dialog */}
+              <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Cancel Subscription</DialogTitle>
+                    <DialogDescription>
+                      Are you sure you want to cancel your subscription? 
+                      You'll continue to have access until the end of your current billing period.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter className="mt-4">
+                    <Button variant="outline" onClick={() => setShowCancelDialog(false)}>Keep Subscription</Button>
+                    <Button variant="destructive" onClick={handleCancelSubscription}>Cancel Subscription</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
               <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
                 <div className="flex items-start">
                   <AlertTriangle className="h-5 w-5 text-amber-500 mr-2 mt-0.5" />
                   <div>
-                    <h4 className="font-medium text-amber-800">Payment Method Update</h4>
-                    <p className="text-sm text-amber-700">To update your payment method, please contact our billing department at billing@example.com</p>
+                    <h4 className="font-medium text-amber-800">Have Questions?</h4>
+                    <p className="text-sm text-amber-700">For any questions about your subscription, please contact our billing department at billing@example.com</p>
                   </div>
                 </div>
               </div>
