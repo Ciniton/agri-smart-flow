@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -10,8 +11,8 @@ import {
   HelpCircle,
   Waves,
   Map,
-  Devices2,
-  FileBarGraph,
+  Smartphone, // Replacing Devices2
+  BarChart, // Replacing FileBarGraph
   Bell,
   UserRound
 } from 'lucide-react';
@@ -35,8 +36,8 @@ const Sidebar = () => {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: Waves, label: 'Irrigation', path: '/irrigation' },
     { icon: Map, label: 'Mapping', path: '/mapping' },
-    { icon: Devices2, label: 'Devices', path: '/devices' },
-    { icon: FileBarGraph, label: 'Reports', path: '/reports' },
+    { icon: Smartphone, label: 'Devices', path: '/devices' },
+    { icon: BarChart, label: 'Reports', path: '/reports' },
     { icon: Bell, label: 'Alerts', path: '/alerts' },
     { icon: UserRound, label: 'Profile', path: '/profile' },
     { icon: Settings, label: 'Settings', path: '/settings' },
