@@ -9,9 +9,10 @@ interface InteractiveMapProps {
   onLocationChange?: (lat: number, lng: number) => void;
 }
 
+// Add proper type declarations for Google Maps
 declare global {
   interface Window {
-    google: any;
+    google: typeof google;
     initMap: () => void;
   }
 }

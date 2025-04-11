@@ -68,18 +68,18 @@ const scheduleData: ScheduleItem[] = [
   { id: '4', zone: 'West Field - Zone 4', startTime: '05:30 PM', duration: '40 min', status: "scheduled" },
 ];
 
-const weatherData: WeatherData = {
+const weatherData = {
   location: 'Central Farm',
   temperature: 24,
-  condition: "partly-cloudy",
+  condition: "partly-cloudy" as const,
   humidity: 65,
   windSpeed: 8,
   forecast: [
-    { day: 'Mon', temperature: 24, condition: "partly-cloudy" },
-    { day: 'Tue', temperature: 27, condition: "sunny" },
-    { day: 'Wed', temperature: 25, condition: "partly-cloudy" },
-    { day: 'Thu', temperature: 22, condition: "rainy" },
-    { day: 'Fri', temperature: 23, condition: "cloudy" },
+    { day: 'Mon', temperature: 24, condition: "partly-cloudy" as const },
+    { day: 'Tue', temperature: 27, condition: "sunny" as const },
+    { day: 'Wed', temperature: 25, condition: "partly-cloudy" as const },
+    { day: 'Thu', temperature: 22, condition: "rainy" as const },
+    { day: 'Fri', temperature: 23, condition: "cloudy" as const },
   ],
 };
 
@@ -122,13 +122,20 @@ const Dashboard: React.FC = () => {
           <WaterUsageChart data={waterUsageData} />
         </div>
         <div>
-          <WeatherCard {...weatherData} />
+          <WeatherCard 
+            location={weatherData.location}
+            temperature={weatherData.temperature}
+            condition={weatherData.condition}
+            humidity={weatherData.humidity}
+            windSpeed={weatherData.windSpeed}
+            forecast={weatherData.forecast as WeatherForecastItem[]}
+          />
         </div>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <DeviceStatusCard devices={deviceData} />
-        <IrrigationScheduleCard schedules={scheduleData} />
+        <DeviceStatusCard devices={deviceData as DeviceStatus[]} />
+        <IrrigationScheduleCard schedules={scheduleData as ScheduleItem[]} />
         <div className="grid grid-cols-1 gap-6">
           <QuickActions />
           <SoilMoistureMap />

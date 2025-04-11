@@ -5,7 +5,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Bar, Pie, Line, BarChart, PieChart, LineChart, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { 
+  Bar, 
+  Pie, 
+  Line, 
+  BarChart, 
+  PieChart, 
+  LineChart, 
+  ResponsiveContainer, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend,
+  Cell 
+} from 'recharts';
 import { Download, FileUp, Calendar as CalendarIcon, Filter } from 'lucide-react';
 
 // Mock data for reports
