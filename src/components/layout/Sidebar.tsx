@@ -1,111 +1,74 @@
-
-import React from 'react';
+import React, { useState } from 'react';
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
+import {
+  Home,
+  LayoutDashboard,
+  Settings,
+  HelpCircle,
+  Waves,
+  Map,
+  Devices2,
+  FileBarGraph,
+  Bell,
+  UserRound
+} from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { 
-  LayoutDashboard, 
-  Droplets, 
-  Map, 
-  Layers, 
-  AlertCircle, 
-  Settings, 
-  BarChart, 
-  HelpCircle,
-  Menu
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useIsMobile } from '@/hooks/use-mobile';
 
-interface SidebarProps {
-  isSidebarOpen: boolean;
-  toggleSidebar: () => void;
-}
-
-const Sidebar: React.FC<SidebarProps> = ({ isSidebarOpen, toggleSidebar }) => {
+const Sidebar = () => {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const location = useLocation();
-  const isMobile = useIsMobile();
-  
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
+  const closeSidebar = () => {
+    setIsSidebarOpen(false);
+  };
+
   const navItems = [
-    { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
-    { name: 'Irrigation Control', path: '/irrigation', icon: <Droplets size={20} /> },
-    { name: 'Field Mapping', path: '/mapping', icon: <Map size={20} /> },
-    { name: 'Sensors & Devices', path: '/devices', icon: <Layers size={20} /> },
-    { name: 'Reports', path: '/reports', icon: <BarChart size={20} /> },
-    { name: 'Alerts', path: '/alerts', icon: <AlertCircle size={20} /> },
-    { name: 'Settings', path: '/settings', icon: <Settings size={20} /> },
-    { name: 'Help', path: '/help', icon: <HelpCircle size={20} /> },
+    { icon: Home, label: 'Home', path: '/' },
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+    { icon: Waves, label: 'Irrigation', path: '/irrigation' },
+    { icon: Map, label: 'Mapping', path: '/mapping' },
+    { icon: Devices2, label: 'Devices', path: '/devices' },
+    { icon: FileBarGraph, label: 'Reports', path: '/reports' },
+    { icon: Bell, label: 'Alerts', path: '/alerts' },
+    { icon: UserRound, label: 'Profile', path: '/profile' },
+    { icon: Settings, label: 'Settings', path: '/settings' },
+    { icon: HelpCircle, label: 'Help', path: '/help' },
   ];
 
   return (
-    <>
-      <div className="fixed top-0 left-0 z-40 h-14 w-full bg-primary flex items-center justify-between px-4 lg:hidden">
-        <div className="flex items-center">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={toggleSidebar}
-            className="text-white"
-          >
-            <Menu size={24} />
-          </Button>
-          <h1 className="ml-3 text-white font-semibold text-lg">AgriSmartFlow</h1>
-        </div>
-      </div>
-      
-      <div 
-        className={cn(
-          "fixed inset-0 bg-black/50 z-30 lg:hidden transition-opacity duration-200",
-          isSidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-        )}
-        onClick={toggleSidebar}
-      />
-      
-      <aside 
-        className={cn(
-          "fixed top-0 left-0 h-full bg-primary text-white w-64 flex flex-col z-40 transition-transform duration-300 ease-in-out",
-          isMobile && !isSidebarOpen ? "-translate-x-full" : "translate-x-0",
-          isMobile ? "pt-14" : ""
-        )}
-      >
-        <div className="p-4 border-b border-primary-600 hidden lg:flex items-center justify-center">
-          <h1 className="text-xl font-bold">AgriSmartFlow</h1>
-        </div>
-        
-        <nav className="flex-1 overflow-y-auto py-4">
-          <ul className="space-y-1 px-2">
+    <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
+      <SheetTrigger asChild>
+        <Button variant="ghost" size="icon" onClick={toggleSidebar}>
+          <Home className="h-4 w-4" />
+        </Button>
+      </SheetTrigger>
+      <SheetContent className="w-64">
+        <ScrollArea className="h-full py-6">
+          <div className="px-3 py-2">
             {navItems.map((item) => (
-              <li key={item.path}>
-                <Link
-                  to={item.path}
-                  className={cn(
-                    "flex items-center px-3 py-2 rounded-md transition-colors",
-                    location.pathname === item.path
-                      ? "bg-primary-700 text-white"
-                      : "text-white/80 hover:bg-primary-700 hover:text-white"
-                  )}
-                  onClick={isMobile ? toggleSidebar : undefined}
-                >
-                  <span className="mr-3">{item.icon}</span>
-                  <span>{item.name}</span>
-                </Link>
-              </li>
+              <Link to={item.path} key={item.label} onClick={closeSidebar}>
+                <div className={cn(
+                  "flex items-center space-x-2 rounded-md p-2 hover:bg-secondary",
+                  location.pathname === item.path ? "bg-secondary" : ""
+                )}>
+                  <item.icon className="h-4 w-4" />
+                  <span className="text-sm font-medium">{item.label}</span>
+                </div>
+              </Link>
             ))}
-          </ul>
-        </nav>
-        
-        <div className="p-4 border-t border-primary-600">
-          <div className="flex items-center space-x-3">
-            <div className="h-8 w-8 rounded-full bg-primary-700 flex items-center justify-center">
-              <span className="font-medium text-sm">JD</span>
-            </div>
-            <div>
-              <div className="text-sm font-medium">John Doe</div>
-              <div className="text-xs text-white/70">Farm Manager</div>
-            </div>
           </div>
-        </div>
-      </aside>
-    </>
+          <Separator className="my-4" />
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
   );
 };
 

@@ -321,7 +321,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onLocationChange, mode 
   }, [userPosition, map]);
 
   useEffect(() => {
-    if (map && drawingManagerRef.current) {
+    if (mode !== activeTool && map && drawingManagerRef.current) {
       setMapMode(mode);
     }
   }, [mode, map]);

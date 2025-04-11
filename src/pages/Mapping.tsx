@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -83,7 +82,7 @@ const Mapping: React.FC = () => {
   const [showAddZoneDialog, setShowAddZoneDialog] = useState(false);
   const [showAddDeviceDialog, setShowAddDeviceDialog] = useState(false);
   const [newField, setNewField] = useState({ name: '', area: '' });
-  const [newZone, setNewZone] = useState({ name: '', fieldId: '', irrigationType: 'medium' as const });
+  const [newZone, setNewZone] = useState({ name: '', fieldId: '', irrigationType: 'medium' as 'low' | 'medium' | 'high' });
   const [newDevice, setNewDevice] = useState({ name: '', type: 'sensor' as 'sensor' | 'valve' | 'weather-station' });
   const [fields, setFields] = useState<Field[]>([
     { id: 'f1', name: 'North Field', area: 12500, lastModified: '2025-03-15' },
@@ -824,24 +823,3 @@ const Mapping: React.FC = () => {
                     <div className="flex items-center">
                       <div className="w-4 h-4 rounded bg-amber-800 mr-2"></div>
                       <span className="text-xs">Clay Soil</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-4 h-4 rounded bg-amber-500 mr-2"></div>
-                      <span className="text-xs">Loam Soil</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-4 h-4 rounded bg-gray-400 mr-2"></div>
-                      <span className="text-xs">Rocky Soil</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-};
-
-export default Mapping;
