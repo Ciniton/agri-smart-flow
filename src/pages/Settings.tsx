@@ -9,7 +9,25 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from '@/components/ui/badge';
 import { Separator } from "@/components/ui/separator";
-import { User, Key, Globe, UserPlus, Users, Building, MapPin, Droplets, Database, Server, Bell, Settings as SettingsIcon, HelpCircle, Download, UploadCloud, Calendar } from 'lucide-react';
+import { 
+  User, 
+  Key, 
+  Globe, 
+  UserPlus, 
+  Users, 
+  Building, 
+  MapPin, 
+  Droplets, 
+  Database, 
+  Server, 
+  Bell, 
+  Settings as SettingsIcon, 
+  HelpCircle, 
+  Download, 
+  UploadCloud, 
+  Calendar,
+  AlertCircle 
+} from 'lucide-react';
 import { toast } from "@/hooks/use-toast";
 
 interface FormState {

@@ -9,14 +9,20 @@ import IrrigationScheduleCard from '@/components/dashboard/IrrigationScheduleCar
 import QuickActions from '@/components/dashboard/QuickActions';
 import { Droplets, Gauge, Clock, ThermometerSun } from 'lucide-react';
 
-// Mock data
-const deviceData = [
-  { id: '1', name: 'Valve Controller A1', zone: 'North Field', status: 'healthy', lastReading: '2 min ago' },
-  { id: '2', name: 'Moisture Sensor B3', zone: 'East Field', status: 'warning', lastReading: '5 min ago' },
-  { id: '3', name: 'Weather Station', zone: 'Central', status: 'healthy', lastReading: '1 min ago' },
-  { id: '4', name: 'Valve Controller C2', zone: 'South Field', status: 'error', lastReading: '15 min ago' },
-  { id: '5', name: 'Flow Meter M1', zone: 'Irrigation System', status: 'healthy', lastReading: '3 min ago' },
-  { id: '6', name: 'Pump Control Unit', zone: 'Pump House', status: 'offline', lastReading: '1 hr ago' },
+// Mock data with proper typing
+const deviceData: {
+  id: string;
+  name: string;
+  zone: string;
+  status: "healthy" | "warning" | "error" | "offline";
+  lastReading: string;
+}[] = [
+  { id: '1', name: 'Valve Controller A1', zone: 'North Field', status: "healthy", lastReading: '2 min ago' },
+  { id: '2', name: 'Moisture Sensor B3', zone: 'East Field', status: "warning", lastReading: '5 min ago' },
+  { id: '3', name: 'Weather Station', zone: 'Central', status: "healthy", lastReading: '1 min ago' },
+  { id: '4', name: 'Valve Controller C2', zone: 'South Field', status: "error", lastReading: '15 min ago' },
+  { id: '5', name: 'Flow Meter M1', zone: 'Irrigation System', status: "healthy", lastReading: '3 min ago' },
+  { id: '6', name: 'Pump Control Unit', zone: 'Pump House', status: "offline", lastReading: '1 hr ago' },
 ];
 
 const waterUsageData = [
@@ -29,25 +35,31 @@ const waterUsageData = [
   { date: 'Sun', actual: 80, optimal: 100 },
 ];
 
-const scheduleData = [
-  { id: '1', zone: 'North Field - Zone 1', startTime: '07:30 AM', duration: '45 min', status: 'completed' },
-  { id: '2', zone: 'East Field - Zone 3', startTime: '10:15 AM', duration: '30 min', status: 'active' },
-  { id: '3', zone: 'South Field - Zone 2', startTime: '02:00 PM', duration: '60 min', status: 'scheduled' },
-  { id: '4', zone: 'West Field - Zone 4', startTime: '05:30 PM', duration: '40 min', status: 'scheduled' },
+const scheduleData: {
+  id: string;
+  zone: string;
+  startTime: string;
+  duration: string;
+  status: "completed" | "active" | "scheduled";
+}[] = [
+  { id: '1', zone: 'North Field - Zone 1', startTime: '07:30 AM', duration: '45 min', status: "completed" },
+  { id: '2', zone: 'East Field - Zone 3', startTime: '10:15 AM', duration: '30 min', status: "active" },
+  { id: '3', zone: 'South Field - Zone 2', startTime: '02:00 PM', duration: '60 min', status: "scheduled" },
+  { id: '4', zone: 'West Field - Zone 4', startTime: '05:30 PM', duration: '40 min', status: "scheduled" },
 ];
 
 const weatherData = {
   location: 'Central Farm',
   temperature: 24,
-  condition: 'partly-cloudy',
+  condition: "partly-cloudy" as "partly-cloudy" | "sunny" | "rainy" | "cloudy", // Type assertion
   humidity: 65,
   windSpeed: 8,
   forecast: [
-    { day: 'Mon', temperature: 24, condition: 'partly-cloudy' },
-    { day: 'Tue', temperature: 27, condition: 'sunny' },
-    { day: 'Wed', temperature: 25, condition: 'partly-cloudy' },
-    { day: 'Thu', temperature: 22, condition: 'rainy' },
-    { day: 'Fri', temperature: 23, condition: 'cloudy' },
+    { day: 'Mon', temperature: 24, condition: "partly-cloudy" as "partly-cloudy" | "sunny" | "rainy" | "cloudy" },
+    { day: 'Tue', temperature: 27, condition: "sunny" as "partly-cloudy" | "sunny" | "rainy" | "cloudy" },
+    { day: 'Wed', temperature: 25, condition: "partly-cloudy" as "partly-cloudy" | "sunny" | "rainy" | "cloudy" },
+    { day: 'Thu', temperature: 22, condition: "rainy" as "partly-cloudy" | "sunny" | "rainy" | "cloudy" },
+    { day: 'Fri', temperature: 23, condition: "cloudy" as "partly-cloudy" | "sunny" | "rainy" | "cloudy" },
   ],
 };
 
