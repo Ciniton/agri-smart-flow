@@ -3,20 +3,6 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import { Badge } from '@/components/ui/badge';
-import { 
-  Clock, 
-  Calendar as CalendarIcon, 
-  PlayCircle, 
-  PauseCircle, 
-  StopCircle, 
-  Plus, 
-  Settings, 
-  X,
-  Check
-} from 'lucide-react';
-import { toast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -26,85 +12,94 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { Droplets, Calendar, Plus, Settings, Clock, Power, Trash2 } from 'lucide-react';
+import { toast } from "@/hooks/use-toast";
 
 interface Zone {
   id: string;
   name: string;
-  status: 'inactive' | 'active' | 'paused' | 'scheduled';
+  status: 'active' | 'inactive' | 'paused' | 'scheduled';
   nextScheduled?: string;
   soilMoisture?: number;
 }
 
 interface Schedule {
   id: string;
-  zoneName: string;
   zoneId: string;
-  startTime: string;
-  duration: string;
   days: string[];
-  status: 'active' | 'inactive';
+  startTime: string;
+  duration: number;
+  enabled: boolean;
 }
 
 const Irrigation: React.FC = () => {
-  const [date, setDate] = useState<Date | undefined>(new Date());
   const [activeTab, setActiveTab] = useState('zones');
   const [showAddScheduleDialog, setShowAddScheduleDialog] = useState(false);
-  const [newSchedule, setNewSchedule] = useState<Partial<Schedule>>({
-    zoneName: '',
-    zoneId: '',
-    startTime: '08:00',
-    duration: '30',
-    days: [],
-    status: 'active'
-  });
-
-  // Mock data for zones and schedules
+  
+  // Mock data for irrigation zones
   const [zones, setZones] = useState<Zone[]>([
-    { id: 'z1', name: 'North Field - Zone 1', status: 'inactive', soilMoisture: 65 },
-    { id: 'z2', name: 'East Field - Zone 2', status: 'active', soilMoisture: 42 },
-    { id: 'z3', name: 'South Field - Zone 3', status: 'paused', soilMoisture: 58 },
-    { id: 'z4', name: 'West Field - Zone 4', status: 'scheduled', nextScheduled: 'Today, 5:30 PM', soilMoisture: 70 },
+    { id: 'z1', name: 'North Field Zone', status: 'active', nextScheduled: 'Today, 4:00 PM', soilMoisture: 42 },
+    { id: 'z2', name: 'East Field Zone', status: 'scheduled', nextScheduled: 'Tomorrow, 6:00 AM', soilMoisture: 38 },
+    { id: 'z3', name: 'South Field Zone', status: 'inactive', soilMoisture: 65 },
+    { id: 'z4', name: 'West Field Zone', status: 'paused', nextScheduled: 'Manual override', soilMoisture: 25 },
   ]);
-
+  
+  // Mock data for schedules
   const [schedules, setSchedules] = useState<Schedule[]>([
-    { id: 's1', zoneName: 'North Field - Zone 1', zoneId: 'z1', startTime: '07:30', duration: '45 minutes', days: ['Monday', 'Wednesday', 'Friday'], status: 'active' },
-    { id: 's2', zoneName: 'East Field - Zone 2', zoneId: 'z2', startTime: '10:15', duration: '30 minutes', days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], status: 'active' },
-    { id: 's3', zoneName: 'South Field - Zone 3', zoneId: 'z3', startTime: '14:00', duration: '60 minutes', days: ['Tuesday', 'Thursday'], status: 'inactive' },
+    { id: 's1', zoneId: 'z1', days: ['Monday', 'Wednesday', 'Friday'], startTime: '16:00', duration: 20, enabled: true },
+    { id: 's2', zoneId: 'z2', days: ['Tuesday', 'Thursday', 'Saturday'], startTime: '06:00', duration: 15, enabled: true },
+    { id: 's3', zoneId: 'z4', days: ['Monday', 'Thursday'], startTime: '18:30', duration: 25, enabled: false },
   ]);
-
-  const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
-  const handleZoneAction = (zoneId: string, action: 'start' | 'pause' | 'stop') => {
-    const actions = {
-      start: 'started',
-      pause: 'paused',
-      stop: 'stopped'
-    };
-    
-    // Update zone status based on action
-    const updatedZones = zones.map(zone => {
+  
+  const [newSchedule, setNewSchedule] = useState<Omit<Schedule, 'id'>>({
+    zoneId: '',
+    days: [],
+    startTime: '08:00',
+    duration: 15,
+    enabled: true
+  });
+  
+  const toggleZoneStatus = (zoneId: string) => {
+    setZones(zones.map(zone => {
       if (zone.id === zoneId) {
-        const newStatus = action === 'start' ? 'active' : action === 'pause' ? 'paused' : 'inactive';
+        const newStatus: Zone['status'] = 
+          zone.status === 'active' ? 'inactive' : 
+          zone.status === 'inactive' ? 'active' : 
+          zone.status === 'paused' ? 'active' : 'paused';
+        
         return { ...zone, status: newStatus };
       }
       return zone;
-    });
+    }));
     
-    setZones(updatedZones);
-    
-    const zoneName = zones.find(z => z.id === zoneId)?.name;
     toast({
-      title: "Irrigation Control",
-      description: `${zoneName} irrigation ${actions[action]} successfully.`,
+      title: "Zone Status Updated",
+      description: "The irrigation zone status has been changed.",
     });
   };
-
+  
+  const handleAddZone = () => {
+    const newZone: Zone = {
+      id: `z${Date.now()}`,
+      name: `New Zone ${zones.length + 1}`,
+      status: 'inactive',
+      soilMoisture: Math.floor(Math.random() * 50) + 20
+    };
+    
+    setZones([...zones, newZone]);
+    
+    toast({
+      title: "Zone Added",
+      description: "New irrigation zone has been added successfully.",
+    });
+  };
+  
   const handleAddSchedule = () => {
-    // Validate form
-    if (!newSchedule.zoneId || !newSchedule.startTime || !newSchedule.duration || newSchedule.days?.length === 0) {
+    if (!newSchedule.zoneId || !newSchedule.days.length || !newSchedule.startTime) {
       toast({
         title: "Validation Error",
         description: "Please fill in all required fields.",
@@ -112,365 +107,371 @@ const Irrigation: React.FC = () => {
       });
       return;
     }
-
-    const zone = zones.find(z => z.id === newSchedule.zoneId);
-    if (!zone) return;
-
-    // Create new schedule
+    
     const schedule: Schedule = {
       id: `s${Date.now()}`,
-      zoneName: zone.name,
-      zoneId: zone.id,
-      startTime: newSchedule.startTime || '08:00',
-      duration: `${newSchedule.duration} minutes`,
-      days: newSchedule.days || [],
-      status: newSchedule.status || 'active'
+      ...newSchedule
     };
-
-    // Add schedule to the list
+    
     setSchedules([...schedules, schedule]);
-
-    // Update zone status if needed
-    if (schedule.status === 'active') {
-      const updatedZones = zones.map(z => {
-        if (z.id === schedule.zoneId) {
-          return { ...z, status: 'scheduled', nextScheduled: `Next: ${schedule.days[0]}, ${schedule.startTime}` };
+    
+    // Update zone status if the schedule is enabled
+    if (schedule.enabled) {
+      setZones(zones.map(zone => {
+        if (zone.id === schedule.zoneId) {
+          return { 
+            ...zone, 
+            status: 'scheduled' as const,
+            nextScheduled: `Next: ${schedule.days[0]}, ${formatTime(schedule.startTime)}`
+          };
         }
-        return z;
-      });
-      setZones(updatedZones);
+        return zone;
+      }));
     }
-
-    // Reset form and close dialog
+    
     setNewSchedule({
-      zoneName: '',
       zoneId: '',
-      startTime: '08:00',
-      duration: '30',
       days: [],
-      status: 'active'
+      startTime: '08:00',
+      duration: 15,
+      enabled: true
     });
+    
     setShowAddScheduleDialog(false);
-
+    
     toast({
       title: "Schedule Added",
-      description: `New irrigation schedule created for ${zone.name}`,
+      description: "New irrigation schedule has been added successfully.",
     });
   };
-
-  const handleDeleteSchedule = (scheduleId: string) => {
+  
+  const toggleScheduleEnabled = (scheduleId: string) => {
+    const updatedSchedules = schedules.map(schedule => {
+      if (schedule.id === scheduleId) {
+        return { ...schedule, enabled: !schedule.enabled };
+      }
+      return schedule;
+    });
+    
+    setSchedules(updatedSchedules);
+    
+    // Update zone status based on schedule changes
+    const updatedZones = zones.map(zone => {
+      const zoneSchedules = updatedSchedules.filter(s => s.zoneId === zone.id && s.enabled);
+      if (zoneSchedules.length > 0 && zone.status !== 'active') {
+        return { 
+          ...zone, 
+          status: 'scheduled' as const,
+          nextScheduled: `Next: ${zoneSchedules[0].days[0]}, ${formatTime(zoneSchedules[0].startTime)}`
+        };
+      } else if (zoneSchedules.length === 0 && zone.status === 'scheduled') {
+        return { ...zone, status: 'inactive' as const, nextScheduled: undefined };
+      }
+      return zone;
+    });
+    
+    setZones(updatedZones);
+    
+    toast({
+      title: "Schedule Updated",
+      description: "The irrigation schedule has been updated.",
+    });
+  };
+  
+  const deleteSchedule = (scheduleId: string) => {
+    const scheduleToDelete = schedules.find(s => s.id === scheduleId);
+    if (!scheduleToDelete) return;
+    
     setSchedules(schedules.filter(s => s.id !== scheduleId));
+    
+    // Check if this was the last schedule for the zone
+    const remainingZoneSchedules = schedules.filter(s => 
+      s.id !== scheduleId && s.zoneId === scheduleToDelete.zoneId && s.enabled
+    );
+    
+    if (remainingZoneSchedules.length === 0) {
+      setZones(zones.map(zone => {
+        if (zone.id === scheduleToDelete.zoneId && zone.status === 'scheduled') {
+          return { ...zone, status: 'inactive' as const, nextScheduled: undefined };
+        }
+        return zone;
+      }));
+    }
+    
     toast({
       title: "Schedule Deleted",
-      description: "Irrigation schedule has been removed.",
+      description: "The irrigation schedule has been removed.",
     });
   };
-
-  const getZoneStatusBadge = (status: Zone['status']) => {
-    switch (status) {
-      case 'active':
-        return <Badge className="bg-green-500">Active</Badge>;
-      case 'paused':
-        return <Badge className="bg-amber-500">Paused</Badge>;
-      case 'scheduled':
-        return <Badge className="bg-blue-500">Scheduled</Badge>;
-      default:
-        return <Badge variant="outline">Inactive</Badge>;
-    }
+  
+  const formatTime = (time24: string): string => {
+    const [hour, minute] = time24.split(':').map(Number);
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minute.toString().padStart(2, '0')} ${period}`;
+  };
+  
+  const getDayCheckboxes = () => {
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    
+    return days.map(day => (
+      <div key={day} className="flex items-center space-x-2">
+        <Checkbox 
+          id={`day-${day}`} 
+          checked={newSchedule.days.includes(day)}
+          onCheckedChange={(checked) => {
+            if (checked) {
+              setNewSchedule({ ...newSchedule, days: [...newSchedule.days, day] });
+            } else {
+              setNewSchedule({ 
+                ...newSchedule, 
+                days: newSchedule.days.filter(d => d !== day) 
+              });
+            }
+          }}
+        />
+        <label 
+          htmlFor={`day-${day}`}
+          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+        >
+          {day}
+        </label>
+      </div>
+    ));
   };
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Irrigation Control</h1>
-        <p className="text-muted-foreground mt-1">Manage your irrigation system</p>
+        <p className="text-muted-foreground mt-1">Manage your irrigation zones and schedules</p>
       </div>
       
-      <Tabs defaultValue="zones" value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="zones">Zones</TabsTrigger>
           <TabsTrigger value="schedules">Schedules</TabsTrigger>
         </TabsList>
         
         <TabsContent value="zones" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {zones.map((zone) => (
               <Card key={zone.id}>
                 <CardHeader className="pb-2">
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-start">
                     <CardTitle className="text-lg">{zone.name}</CardTitle>
-                    {getZoneStatusBadge(zone.status)}
+                    <Badge 
+                      className={
+                        zone.status === 'active' ? "bg-green-500" : 
+                        zone.status === 'scheduled' ? "bg-blue-500" :
+                        zone.status === 'paused' ? "bg-amber-500" : "bg-gray-500"
+                      }
+                    >
+                      {zone.status.charAt(0).toUpperCase() + zone.status.slice(1)}
+                    </Badge>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      {zone.soilMoisture && (
-                        <div>
-                          <p className="text-muted-foreground">Soil Moisture</p>
-                          <p className="font-medium">{zone.soilMoisture}%</p>
+                    {zone.soilMoisture !== undefined && (
+                      <div>
+                        <p className="text-sm font-medium mb-1">Soil Moisture</p>
+                        <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full ${
+                              zone.soilMoisture < 30 ? "bg-red-500" : 
+                              zone.soilMoisture < 50 ? "bg-amber-500" : "bg-green-500"
+                            }`}
+                            style={{ width: `${zone.soilMoisture}%` }}
+                          ></div>
                         </div>
-                      )}
-                      {zone.nextScheduled && (
-                        <div>
-                          <p className="text-muted-foreground">Next Scheduled</p>
-                          <p className="font-medium">{zone.nextScheduled}</p>
-                        </div>
-                      )}
-                    </div>
+                        <p className="text-xs text-right mt-1">{zone.soilMoisture}%</p>
+                      </div>
+                    )}
                     
-                    <div className="flex space-x-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="flex-1"
-                        onClick={() => handleZoneAction(zone.id, 'start')}
-                      >
-                        <PlayCircle className="mr-2 h-4 w-4" />
-                        Start
+                    {zone.nextScheduled && (
+                      <div className="flex items-center text-sm text-muted-foreground">
+                        <Calendar className="h-4 w-4 mr-1" />
+                        <span>{zone.nextScheduled}</span>
+                      </div>
+                    )}
+                    
+                    <div className="flex justify-between pt-2">
+                      <Button variant="outline" size="sm">
+                        <Settings className="mr-2 h-4 w-4" />
+                        Configure
                       </Button>
                       <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="flex-1"
-                        onClick={() => handleZoneAction(zone.id, 'pause')}
+                        size="sm"
+                        variant={zone.status === 'active' ? "destructive" : "default"}
+                        onClick={() => toggleZoneStatus(zone.id)}
                       >
-                        <PauseCircle className="mr-2 h-4 w-4" />
-                        Pause
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="flex-1"
-                        onClick={() => handleZoneAction(zone.id, 'stop')}
-                      >
-                        <StopCircle className="mr-2 h-4 w-4" />
-                        Stop
+                        <Power className="mr-2 h-4 w-4" />
+                        {zone.status === 'active' ? 'Stop' : 'Start'}
                       </Button>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             ))}
-          </div>
-          
-          <div className="flex justify-end">
-            <Button onClick={() => toast({ 
-              title: "Feature Coming Soon", 
-              description: "Adding zones will be available in a future update."
-            })}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Zone
-            </Button>
+            
+            <Card className="flex items-center justify-center h-[220px] border-dashed">
+              <Button variant="ghost" className="h-20 w-20 rounded-full" onClick={handleAddZone}>
+                <Plus className="h-8 w-8" />
+              </Button>
+            </Card>
           </div>
         </TabsContent>
         
         <TabsContent value="schedules" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-2 space-y-4">
-              {schedules.map((schedule) => (
-                <Card key={schedule.id}>
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-center">
-                      <CardTitle className="text-lg">{schedule.zoneName}</CardTitle>
-                      <div className="flex space-x-2 items-center">
-                        <Badge className={schedule.status === 'active' ? 'bg-green-500' : 'bg-gray-500'}>
-                          {schedule.status === 'active' ? 'Active' : 'Inactive'}
-                        </Badge>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8" 
-                          onClick={() => handleDeleteSchedule(schedule.id)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold">Current Schedules</h2>
+            <Dialog open={showAddScheduleDialog} onOpenChange={setShowAddScheduleDialog}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Schedule
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Schedule</DialogTitle>
+                  <DialogDescription>
+                    Create a new irrigation schedule for a specific zone.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="zone" className="text-right text-sm font-medium">
+                      Zone
+                    </Label>
+                    <select
+                      id="zone"
+                      className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={newSchedule.zoneId}
+                      onChange={(e) => setNewSchedule({...newSchedule, zoneId: e.target.value})}
+                    >
+                      <option value="" disabled>Select a zone</option>
+                      {zones.map(zone => (
+                        <option key={zone.id} value={zone.id}>{zone.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-4 items-start gap-4">
+                    <Label className="text-right text-sm font-medium mt-2">
+                      Days
+                    </Label>
+                    <div className="col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {getDayCheckboxes()}
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div className="flex items-center">
-                          <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <p className="text-muted-foreground">Start Time</p>
-                            <p className="font-medium">{schedule.startTime}</p>
-                          </div>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="startTime" className="text-right text-sm font-medium">
+                      Start Time
+                    </Label>
+                    <Input
+                      id="startTime"
+                      type="time"
+                      className="col-span-3"
+                      value={newSchedule.startTime}
+                      onChange={(e) => setNewSchedule({...newSchedule, startTime: e.target.value})}
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="duration" className="text-right text-sm font-medium">
+                      Duration (min)
+                    </Label>
+                    <Input
+                      id="duration"
+                      type="number"
+                      min="1"
+                      max="120"
+                      className="col-span-3"
+                      value={newSchedule.duration}
+                      onChange={(e) => setNewSchedule({...newSchedule, duration: parseInt(e.target.value)})}
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="enabled" className="text-right text-sm font-medium">
+                      Enabled
+                    </Label>
+                    <div className="col-span-3 flex items-center space-x-2">
+                      <Switch
+                        id="enabled"
+                        checked={newSchedule.enabled}
+                        onCheckedChange={(checked) => setNewSchedule({...newSchedule, enabled: checked})}
+                      />
+                      <Label htmlFor="enabled">
+                        {newSchedule.enabled ? 'Active' : 'Inactive'}
+                      </Label>
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowAddScheduleDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAddSchedule}>
+                    Add Schedule
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+          
+          <div className="space-y-4">
+            {schedules.map((schedule) => {
+              const zone = zones.find(z => z.id === schedule.zoneId);
+              return (
+                <Card key={schedule.id}>
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-center">
+                      <div className="space-y-1">
+                        <h3 className="font-medium">{zone?.name || 'Unknown Zone'}</h3>
+                        <div className="flex items-center text-sm text-muted-foreground">
+                          <Clock className="h-4 w-4 mr-1" />
+                          <span>{formatTime(schedule.startTime)}, {schedule.duration} min</span>
                         </div>
-                        <div className="flex items-center">
-                          <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <p className="text-muted-foreground">Duration</p>
-                            <p className="font-medium">{schedule.duration}</p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-2">Days</p>
-                        <div className="flex flex-wrap gap-1">
-                          {schedule.days.map((day) => (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {schedule.days.map(day => (
                             <Badge key={day} variant="outline" className="text-xs">
-                              {day}
+                              {day.slice(0, 3)}
                             </Badge>
                           ))}
                         </div>
                       </div>
-                      
-                      <div className="flex justify-end space-x-2">
-                        <Button variant="outline" size="sm">
-                          <Settings className="mr-2 h-4 w-4" />
-                          Edit
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          checked={schedule.enabled}
+                          onCheckedChange={() => toggleScheduleEnabled(schedule.id)}
+                        />
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => deleteSchedule(schedule.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-              
-              <div className="flex justify-end">
-                <Dialog open={showAddScheduleDialog} onOpenChange={setShowAddScheduleDialog}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Schedule
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                      <DialogTitle>Create New Irrigation Schedule</DialogTitle>
-                      <DialogDescription>
-                        Set up a recurring irrigation schedule for a specific zone.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="zone">Zone</Label>
-                        <select
-                          id="zone"
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                          value={newSchedule.zoneId}
-                          onChange={(e) => setNewSchedule({...newSchedule, zoneId: e.target.value})}
-                        >
-                          <option value="">Select a zone</option>
-                          {zones.map((zone) => (
-                            <option key={zone.id} value={zone.id}>
-                              {zone.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="startTime">Start Time</Label>
-                          <Input
-                            id="startTime"
-                            type="time"
-                            value={newSchedule.startTime}
-                            onChange={(e) => setNewSchedule({...newSchedule, startTime: e.target.value})}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="duration">Duration (minutes)</Label>
-                          <Input
-                            id="duration"
-                            type="number"
-                            min="1"
-                            max="180"
-                            value={newSchedule.duration}
-                            onChange={(e) => setNewSchedule({...newSchedule, duration: e.target.value})}
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Days of Week</Label>
-                        <div className="grid grid-cols-4 gap-2">
-                          {weekdays.map((day) => (
-                            <div key={day} className="flex items-center space-x-2">
-                              <Checkbox 
-                                id={`day-${day}`} 
-                                checked={newSchedule.days?.includes(day)}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    setNewSchedule({
-                                      ...newSchedule, 
-                                      days: [...(newSchedule.days || []), day]
-                                    });
-                                  } else {
-                                    setNewSchedule({
-                                      ...newSchedule, 
-                                      days: (newSchedule.days || []).filter(d => d !== day)
-                                    });
-                                  }
-                                }}
-                              />
-                              <Label htmlFor={`day-${day}`} className="text-sm">{day.substring(0, 3)}</Label>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="status" 
-                          checked={newSchedule.status === 'active'}
-                          onCheckedChange={(checked) => {
-                            setNewSchedule({
-                              ...newSchedule, 
-                              status: checked ? 'active' : 'inactive'
-                            });
-                          }}
-                        />
-                        <Label htmlFor="status">Activate schedule immediately</Label>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setShowAddScheduleDialog(false)}>
-                        Cancel
-                      </Button>
-                      <Button type="submit" onClick={handleAddSchedule}>
-                        <Check className="mr-2 h-4 w-4" />
-                        Create Schedule
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </div>
+              );
+            })}
             
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Calendar</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  className="rounded-md border"
-                />
-                <div className="mt-4">
-                  <h3 className="font-medium mb-2">Today's Schedule</h3>
-                  <div className="space-y-2">
-                    {schedules
-                      .filter(s => s.status === 'active' && s.days.includes(
-                        ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date().getDay()]
-                      ))
-                      .map(s => (
-                        <div key={s.id} className="text-sm p-2 bg-muted rounded-md">
-                          <div className="font-medium">{s.zoneName}</div>
-                          <div className="text-muted-foreground">{s.startTime} - Duration: {s.duration}</div>
-                        </div>
-                      ))}
-                    {schedules.filter(s => s.status === 'active').length === 0 && (
-                      <div className="text-sm p-2 bg-muted rounded-md text-muted-foreground">
-                        No schedules for today
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {schedules.length === 0 && (
+              <div className="text-center py-10 border rounded-md border-dashed">
+                <Calendar className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">No Schedules</h3>
+                <p className="text-muted-foreground mb-4">
+                  You haven't created any irrigation schedules yet.
+                </p>
+                <Button onClick={() => setShowAddScheduleDialog(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Schedule
+                </Button>
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>

@@ -223,7 +223,7 @@ const Devices: React.FC = () => {
         if (device.status === 'offline') {
           return {
             ...device, 
-            status: 'warning',
+            status: 'warning' as const,
             batteryLevel: 15,
             signalStrength: 25,
             lastReading: 'Just now'

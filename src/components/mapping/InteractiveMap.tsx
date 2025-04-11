@@ -13,22 +13,22 @@ interface InteractiveMapProps {
 // Add proper type declarations for Google Maps
 declare global {
   interface Window {
-    google: typeof google;
+    google: any;
     initMap: () => void;
   }
 }
 
 const InteractiveMap: React.FC<InteractiveMapProps> = ({ onLocationChange, mode = 'pan' }) => {
   const mapRef = useRef<HTMLDivElement>(null);
-  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [map, setMap] = useState<any | null>(null);
   const [userPosition, setUserPosition] = useState<{ lat: number, lng: number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTool, setActiveTool] = useState<'pan' | 'draw' | 'measure'>(mode);
-  const drawingManagerRef = useRef<google.maps.drawing.DrawingManager | null>(null);
-  const markersRef = useRef<google.maps.Marker[]>([]);
-  const polylineRef = useRef<google.maps.Polyline | null>(null);
-  const measurePointsRef = useRef<google.maps.LatLng[]>([]);
+  const drawingManagerRef = useRef<any | null>(null);
+  const markersRef = useRef<any[]>([]);
+  const polylineRef = useRef<any | null>(null);
+  const measurePointsRef = useRef<any[]>([]);
 
   const loadGoogleMapsScript = () => {
     const apiKey = localStorage.getItem('googleMapsApiKey');
@@ -46,7 +46,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onLocationChange, mode 
 
     window.initMap = initMap;
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=drawing&callback=initMap`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=drawing,geometry&callback=initMap`;
     script.async = true;
     script.defer = true;
     script.onerror = () => {
@@ -199,7 +199,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onLocationChange, mode 
             // Add a marker for the user's location
             new window.google.maps.Marker({
               position: userPos,
-              map: map,
+              map,
               title: 'Your Location',
               icon: {
                 path: window.google.maps.SymbolPath.CIRCLE,
