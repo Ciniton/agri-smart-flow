@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import InteractiveMap from '@/components/mapping/InteractiveMap';
 import MapPlaceholder from './MapPlaceholder';
@@ -41,16 +41,40 @@ const DevicesTab: React.FC<DevicesTabProps> = ({
   handleEditDevice,
   handleAddDevice,
 }) => {
+  const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
+  
+  const handleStartEditDevice = (deviceId: string) => {
+    setEditingDeviceId(deviceId);
+    handleEditDevice(deviceId);
+  };
+  
+  const handleFinishEdit = () => {
+    setEditingDeviceId(null);
+    onSaveMap();
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
       <div className="lg:col-span-3">
-        <Card>
+        <Card className="shadow-md border-primary/10 hover:shadow-lg transition-shadow duration-300">
           <CardHeader>
-            <CardTitle>Device Placement</CardTitle>
+            <CardTitle className="flex items-center">
+              Device Placement
+              {editingDeviceId && (
+                <span className="ml-2 text-sm text-primary opacity-80">
+                  (Editing device - drag to reposition)
+                </span>
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {hasApiKey ? (
-              <InteractiveMap onLocationChange={onLocationChange} mode={activeMode} />
+              <InteractiveMap 
+                onLocationChange={onLocationChange} 
+                mode={activeMode} 
+                editingDeviceId={editingDeviceId} 
+                devices={devices}
+              />
             ) : (
               <MapPlaceholder />
             )}
@@ -61,8 +85,9 @@ const DevicesTab: React.FC<DevicesTabProps> = ({
                   activeMode={activeMode}
                   onModeSelect={onModeSelect}
                   onGetUserLocation={onGetUserLocation}
-                  onSave={onSaveMap}
+                  onSave={editingDeviceId ? handleFinishEdit : onSaveMap}
                   showImportExport={false}
+                  saveButtonText={editingDeviceId ? "Save Device Position" : "Save Devices"}
                 />
                 <AddDeviceDialog
                   open={showAddDeviceDialog}
@@ -82,8 +107,9 @@ const DevicesTab: React.FC<DevicesTabProps> = ({
       
       <DeviceList
         devices={devices}
-        handleEditDevice={handleEditDevice}
+        handleEditDevice={handleStartEditDevice}
         setShowAddDeviceDialog={setShowAddDeviceDialog}
+        editingDeviceId={editingDeviceId}
       />
     </div>
   );

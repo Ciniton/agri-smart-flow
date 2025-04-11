@@ -8,6 +8,13 @@ import { ZoomIn, ZoomOut, Navigation, Pencil, Ruler } from 'lucide-react';
 interface InteractiveMapProps {
   onLocationChange?: (lat: number, lng: number) => void;
   mode?: 'pan' | 'draw' | 'measure';
+  editingDeviceId?: string | null;
+  devices?: Array<{
+    id: string;
+    name: string;
+    type: 'sensor' | 'valve' | 'weather-station';
+    position: { lat: number; lng: number };
+  }>;
 }
 
 // Add proper type declarations for Google Maps
@@ -18,7 +25,12 @@ declare global {
   }
 }
 
-const InteractiveMap: React.FC<InteractiveMapProps> = ({ onLocationChange, mode = 'pan' }) => {
+const InteractiveMap: React.FC<InteractiveMapProps> = ({ 
+  onLocationChange, 
+  mode = 'pan', 
+  editingDeviceId = null,
+  devices = [] 
+}) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<any | null>(null);
   const [userPosition, setUserPosition] = useState<{ lat: number, lng: number } | null>(null);
@@ -27,6 +39,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onLocationChange, mode 
   const [activeTool, setActiveTool] = useState<'pan' | 'draw' | 'measure'>(mode);
   const drawingManagerRef = useRef<any | null>(null);
   const markersRef = useRef<any[]>([]);
+  const deviceMarkersRef = useRef<Map<string, any>>(new Map());
   const polylineRef = useRef<any | null>(null);
   const measurePointsRef = useRef<any[]>([]);
 
@@ -34,7 +47,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onLocationChange, mode 
     const apiKey = localStorage.getItem('googleMapsApiKey');
     
     if (!apiKey) {
-      setError('No Google Maps API key found. Please set it in the Admin configuration.');
+      setError('No Google Maps API key found. Please set it in the map settings.');
       setIsLoading(false);
       return;
     }
@@ -71,16 +84,6 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onLocationChange, mode 
       fullscreenControl: true,
       zoomControl: false, // We'll use our custom zoom controls
     });
-
-    // Add a marker if we have user position
-    if (userPosition) {
-      new window.google.maps.Marker({
-        position: userPosition,
-        map: mapInstance,
-        title: 'Your Location',
-        draggable: true,
-      });
-    }
 
     // Initialize the DrawingManager
     const drawingManager = new window.google.maps.drawing.DrawingManager({
@@ -129,10 +132,12 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onLocationChange, mode 
       });
     });
 
-    // Set up click handler for measuring
+    // Set up click handler for measuring and map interaction
     window.google.maps.event.addListener(mapInstance, 'click', (event) => {
+      const clickedLocation = event.latLng;
+      
+      // If in measure mode, add measurement points
       if (activeTool === 'measure') {
-        const clickedLocation = event.latLng;
         measurePointsRef.current.push(clickedLocation);
         
         // Add a marker at the clicked point
@@ -175,11 +180,93 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onLocationChange, mode 
             description: `Last segment: ${(distance / 1000).toFixed(2)} km`,
           });
         }
+      } 
+      // In other modes, simply update the location
+      else if (onLocationChange) {
+        onLocationChange(clickedLocation.lat(), clickedLocation.lng());
       }
     });
 
+    // Render device markers
+    renderDeviceMarkers(mapInstance);
+
     setMap(mapInstance);
     setIsLoading(false);
+  };
+
+  const renderDeviceMarkers = (mapInstance: any) => {
+    // Clear existing device markers
+    deviceMarkersRef.current.forEach((marker) => {
+      marker.setMap(null);
+    });
+    deviceMarkersRef.current.clear();
+
+    // Add markers for each device
+    devices.forEach(device => {
+      const markerIcon = {
+        url: getDeviceIcon(device.type),
+        scaledSize: new window.google.maps.Size(32, 32),
+        origin: new window.google.maps.Point(0, 0),
+        anchor: new window.google.maps.Point(16, 32)
+      };
+
+      const marker = new window.google.maps.Marker({
+        position: device.position,
+        map: mapInstance,
+        title: device.name,
+        icon: markerIcon,
+        draggable: device.id === editingDeviceId, // Only make it draggable if it's being edited
+        animation: device.id === editingDeviceId ? window.google.maps.Animation.BOUNCE : null
+      });
+
+      // If this marker is the one being edited, add a drag end listener
+      if (device.id === editingDeviceId) {
+        window.google.maps.event.addListener(marker, 'dragend', (event: any) => {
+          if (onLocationChange) {
+            onLocationChange(event.latLng.lat(), event.latLng.lng());
+          }
+          toast({
+            title: "Device Moved",
+            description: `Device "${device.name}" moved to new location`,
+          });
+        });
+
+        // Center on the editing device
+        mapInstance.setCenter(device.position);
+        mapInstance.setZoom(18);
+      }
+
+      // Add click listener to select the device
+      window.google.maps.event.addListener(marker, 'click', () => {
+        if (onLocationChange) {
+          onLocationChange(device.position.lat, device.position.lng);
+        }
+        
+        if (device.id !== editingDeviceId) {
+          toast({
+            title: "Device Selected",
+            description: `Selected ${device.name}`,
+          });
+        }
+      });
+
+      deviceMarkersRef.current.set(device.id, marker);
+    });
+  };
+
+  const getDeviceIcon = (type: 'sensor' | 'valve' | 'weather-station') => {
+    // Return appropriate SVG icon URL based on device type
+    // These could be actual URLs to your SVG icons or data URLs
+    switch (type) {
+      case 'sensor':
+        return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4285F4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`);
+      case 'valve':
+        return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/></svg>`);
+      case 'weather-station':
+        return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFC107" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2"/><path d="M12 21v2"/><path d="M4.22 4.22l1.42 1.42"/><path d="M18.36 18.36l1.42 1.42"/><path d="M1 12h2"/><path d="M21 12h2"/><path d="M4.22 19.78l1.42-1.42"/><path d="M18.36 5.64l1.42-1.42"/></svg>`);
+      default:
+        return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>`);
+    }
   };
 
   const getUserLocation = () => {
@@ -316,6 +403,10 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onLocationChange, mode 
       markersRef.current.forEach(marker => {
         marker.setMap(null);
       });
+      
+      deviceMarkersRef.current.forEach(marker => {
+        marker.setMap(null);
+      });
     };
   }, []);
 
@@ -330,6 +421,13 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onLocationChange, mode 
       setMapMode(mode);
     }
   }, [mode, map]);
+
+  // Update device markers when devices change or when editing a device
+  useEffect(() => {
+    if (map && window.google) {
+      renderDeviceMarkers(map);
+    }
+  }, [devices, editingDeviceId, map]);
 
   return (
     <Card className="w-full h-full">
@@ -355,19 +453,19 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onLocationChange, mode 
         ></div>
         
         <div className="absolute right-4 top-4 flex flex-col space-y-2">
-          <Button variant="outline" size="icon" className="bg-white" onClick={handleZoomIn}>
+          <Button variant="outline" size="icon" className="bg-white/80 backdrop-blur-sm hover:bg-white" onClick={handleZoomIn}>
             <ZoomIn className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" className="bg-white" onClick={handleZoomOut}>
+          <Button variant="outline" size="icon" className="bg-white/80 backdrop-blur-sm hover:bg-white" onClick={handleZoomOut}>
             <ZoomOut className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" className="bg-white" onClick={getUserLocation}>
+          <Button variant="outline" size="icon" className="bg-white/80 backdrop-blur-sm hover:bg-white" onClick={getUserLocation}>
             <Navigation className="h-4 w-4" />
           </Button>
-          <Button variant={activeTool === 'draw' ? "default" : "outline"} size="icon" className="bg-white" onClick={() => setMapMode('draw')}>
+          <Button variant={activeTool === 'draw' ? "default" : "outline"} size="icon" className="bg-white/80 backdrop-blur-sm hover:bg-white" onClick={() => setMapMode('draw')}>
             <Pencil className="h-4 w-4" />
           </Button>
-          <Button variant={activeTool === 'measure' ? "default" : "outline"} size="icon" className="bg-white" onClick={() => setMapMode('measure')}>
+          <Button variant={activeTool === 'measure' ? "default" : "outline"} size="icon" className="bg-white/80 backdrop-blur-sm hover:bg-white" onClick={() => setMapMode('measure')}>
             <Ruler className="h-4 w-4" />
           </Button>
         </div>
