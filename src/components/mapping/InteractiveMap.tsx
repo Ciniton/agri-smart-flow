@@ -183,9 +183,9 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onLocationChange, mode 
   };
 
   const getUserLocation = () => {
-    setIsLoading(true);
-    
     if (navigator.geolocation) {
+      setIsLoading(true);
+      
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
@@ -223,7 +223,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onLocationChange, mode 
 
           toast({
             title: "Location Detected",
-            description: `Your location has been detected at ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+            description: `Your location has been detected at ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
           });
           
           setIsLoading(false);
