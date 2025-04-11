@@ -9,14 +9,40 @@ import IrrigationScheduleCard from '@/components/dashboard/IrrigationScheduleCar
 import QuickActions from '@/components/dashboard/QuickActions';
 import { Droplets, Gauge, Clock, ThermometerSun } from 'lucide-react';
 
-// Mock data with proper typing
-const deviceData: {
+// Define proper types
+interface DeviceStatus {
   id: string;
   name: string;
   zone: string;
   status: "healthy" | "warning" | "error" | "offline";
   lastReading: string;
-}[] = [
+}
+
+interface ScheduleItem {
+  id: string;
+  zone: string;
+  startTime: string;
+  duration: string;
+  status: "completed" | "active" | "scheduled";
+}
+
+interface WeatherForecastItem {
+  day: string;
+  temperature: number;
+  condition: "partly-cloudy" | "sunny" | "rainy" | "cloudy";
+}
+
+interface WeatherData {
+  location: string;
+  temperature: number;
+  condition: "partly-cloudy" | "sunny" | "rainy" | "cloudy";
+  humidity: number;
+  windSpeed: number;
+  forecast: WeatherForecastItem[];
+}
+
+// Mock data with proper typing
+const deviceData: DeviceStatus[] = [
   { id: '1', name: 'Valve Controller A1', zone: 'North Field', status: "healthy", lastReading: '2 min ago' },
   { id: '2', name: 'Moisture Sensor B3', zone: 'East Field', status: "warning", lastReading: '5 min ago' },
   { id: '3', name: 'Weather Station', zone: 'Central', status: "healthy", lastReading: '1 min ago' },
@@ -35,31 +61,25 @@ const waterUsageData = [
   { date: 'Sun', actual: 80, optimal: 100 },
 ];
 
-const scheduleData: {
-  id: string;
-  zone: string;
-  startTime: string;
-  duration: string;
-  status: "completed" | "active" | "scheduled";
-}[] = [
+const scheduleData: ScheduleItem[] = [
   { id: '1', zone: 'North Field - Zone 1', startTime: '07:30 AM', duration: '45 min', status: "completed" },
   { id: '2', zone: 'East Field - Zone 3', startTime: '10:15 AM', duration: '30 min', status: "active" },
   { id: '3', zone: 'South Field - Zone 2', startTime: '02:00 PM', duration: '60 min', status: "scheduled" },
   { id: '4', zone: 'West Field - Zone 4', startTime: '05:30 PM', duration: '40 min', status: "scheduled" },
 ];
 
-const weatherData = {
+const weatherData: WeatherData = {
   location: 'Central Farm',
   temperature: 24,
-  condition: "partly-cloudy" as "partly-cloudy" | "sunny" | "rainy" | "cloudy", // Type assertion
+  condition: "partly-cloudy",
   humidity: 65,
   windSpeed: 8,
   forecast: [
-    { day: 'Mon', temperature: 24, condition: "partly-cloudy" as "partly-cloudy" | "sunny" | "rainy" | "cloudy" },
-    { day: 'Tue', temperature: 27, condition: "sunny" as "partly-cloudy" | "sunny" | "rainy" | "cloudy" },
-    { day: 'Wed', temperature: 25, condition: "partly-cloudy" as "partly-cloudy" | "sunny" | "rainy" | "cloudy" },
-    { day: 'Thu', temperature: 22, condition: "rainy" as "partly-cloudy" | "sunny" | "rainy" | "cloudy" },
-    { day: 'Fri', temperature: 23, condition: "cloudy" as "partly-cloudy" | "sunny" | "rainy" | "cloudy" },
+    { day: 'Mon', temperature: 24, condition: "partly-cloudy" },
+    { day: 'Tue', temperature: 27, condition: "sunny" },
+    { day: 'Wed', temperature: 25, condition: "partly-cloudy" },
+    { day: 'Thu', temperature: 22, condition: "rainy" },
+    { day: 'Fri', temperature: 23, condition: "cloudy" },
   ],
 };
 

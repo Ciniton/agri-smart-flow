@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -786,6 +785,41 @@ const Settings: React.FC = () => {
                   </div>
                 </div>
               </div>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-xl">Map API Configuration</CardTitle>
+                  <CardDescription>Configure Google Maps API key for location services</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={(e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.currentTarget);
+                    const apiKey = formData.get('googleMapsApiKey') as string;
+                    localStorage.setItem('googleMapsApiKey', apiKey);
+                    toast({
+                      title: "API Key Updated",
+                      description: "Google Maps API key has been saved successfully.",
+                    });
+                  }}>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="googleMapsApiKey">Google Maps API Key</Label>
+                        <Input 
+                          id="googleMapsApiKey" 
+                          name="googleMapsApiKey"
+                          placeholder="Enter your Google Maps API key"
+                          defaultValue={localStorage.getItem('googleMapsApiKey') || ''}
+                        />
+                        <p className="text-sm text-muted-foreground">
+                          This API key will be used for mapping functionality across the application.
+                        </p>
+                      </div>
+                      <Button type="submit">Save API Key</Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
               
               <div className="bg-muted p-4 rounded-md">
                 <h3 className="font-medium mb-2">System Information</h3>

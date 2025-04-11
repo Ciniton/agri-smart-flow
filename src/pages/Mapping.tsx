@@ -1,17 +1,22 @@
 
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from "@/hooks/use-toast";
-import { Map, Layers, PenTool, MoveHorizontal, Ruler, ZoomIn, ZoomOut, Save, FileUp, Download, Leaf, Droplets, Plus } from 'lucide-react';
+import { Map, Layers, PenTool, MoveHorizontal, Ruler, Save, FileUp, Download, Leaf, Droplets, Plus } from 'lucide-react';
+import InteractiveMap from '@/components/mapping/InteractiveMap';
 
 const MapPlaceholder = ({ children }: { children?: React.ReactNode }) => (
   <div className="bg-muted rounded-md h-[500px] flex items-center justify-center relative">
     <div className="text-center">
       <Map className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
       <h3 className="text-lg font-medium mb-2">Interactive Field Map</h3>
-      <p className="text-muted-foreground">Google Maps integration will be displayed here.</p>
+      <p className="text-muted-foreground">
+        {localStorage.getItem('googleMapsApiKey') 
+          ? "Loading map..." 
+          : "Please set a Google Maps API key in Admin settings to enable mapping features."}
+      </p>
     </div>
     {children}
   </div>
@@ -19,27 +24,19 @@ const MapPlaceholder = ({ children }: { children?: React.ReactNode }) => (
 
 const Mapping: React.FC = () => {
   const [activeTab, setActiveTab] = useState('fields');
-  const [zoomLevel, setZoomLevel] = useState(14);
   const [fieldNames] = useState<string[]>(['North Field', 'East Field', 'South Field', 'West Field']);
+  const [hasApiKey, setHasApiKey] = useState(false);
+  const [location, setLocation] = useState<{lat: number, lng: number} | null>(null);
   
-  const handleZoomIn = () => {
-    if (zoomLevel < 20) {
-      setZoomLevel(prev => prev + 1);
-      toast({
-        title: "Map Control",
-        description: `Zoomed in to level ${zoomLevel + 1}`,
-      });
-    }
-  };
+  useEffect(() => {
+    // Check if API key exists in localStorage
+    const apiKey = localStorage.getItem('googleMapsApiKey');
+    setHasApiKey(!!apiKey);
+  }, []);
   
-  const handleZoomOut = () => {
-    if (zoomLevel > 1) {
-      setZoomLevel(prev => prev - 1);
-      toast({
-        title: "Map Control",
-        description: `Zoomed out to level ${zoomLevel - 1}`,
-      });
-    }
+  const handleLocationChange = (lat: number, lng: number) => {
+    setLocation({ lat, lng });
+    console.log(`Location updated: ${lat}, ${lng}`);
   };
   
   const handleSaveMap = () => {
@@ -70,21 +67,18 @@ const Mapping: React.FC = () => {
               <Card>
                 <CardHeader>
                   <CardTitle>Field Overview</CardTitle>
+                  {location && (
+                    <CardDescription>
+                      Current Location: {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
+                    </CardDescription>
+                  )}
                 </CardHeader>
                 <CardContent>
-                  <MapPlaceholder>
-                    <div className="absolute right-4 top-4 flex flex-col space-y-2">
-                      <Button variant="outline" size="icon" className="bg-white" onClick={handleZoomIn}>
-                        <ZoomIn className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="icon" className="bg-white" onClick={handleZoomOut}>
-                        <ZoomOut className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="absolute left-4 top-4 p-2 bg-white rounded shadow">
-                      <p className="text-xs font-medium">Zoom Level: {zoomLevel}</p>
-                    </div>
-                  </MapPlaceholder>
+                  {hasApiKey ? (
+                    <InteractiveMap onLocationChange={handleLocationChange} />
+                  ) : (
+                    <MapPlaceholder />
+                  )}
                   
                   <div className="flex justify-between mt-4">
                     <div className="flex space-x-2">
@@ -153,24 +147,28 @@ const Mapping: React.FC = () => {
                   <CardTitle>Irrigation Zones</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <MapPlaceholder>
-                    <div className="absolute left-4 bottom-4 p-2 bg-white rounded shadow">
-                      <div className="flex items-center space-x-4">
-                        <div className="flex items-center">
-                          <div className="w-4 h-4 rounded bg-blue-300 mr-2"></div>
-                          <span className="text-xs">Low Irrigation</span>
-                        </div>
-                        <div className="flex items-center">
-                          <div className="w-4 h-4 rounded bg-blue-500 mr-2"></div>
-                          <span className="text-xs">Medium Irrigation</span>
-                        </div>
-                        <div className="flex items-center">
-                          <div className="w-4 h-4 rounded bg-blue-700 mr-2"></div>
-                          <span className="text-xs">High Irrigation</span>
+                  {hasApiKey ? (
+                    <InteractiveMap />
+                  ) : (
+                    <MapPlaceholder>
+                      <div className="absolute left-4 bottom-4 p-2 bg-white rounded shadow">
+                        <div className="flex items-center space-x-4">
+                          <div className="flex items-center">
+                            <div className="w-4 h-4 rounded bg-blue-300 mr-2"></div>
+                            <span className="text-xs">Low Irrigation</span>
+                          </div>
+                          <div className="flex items-center">
+                            <div className="w-4 h-4 rounded bg-blue-500 mr-2"></div>
+                            <span className="text-xs">Medium Irrigation</span>
+                          </div>
+                          <div className="flex items-center">
+                            <div className="w-4 h-4 rounded bg-blue-700 mr-2"></div>
+                            <span className="text-xs">High Irrigation</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </MapPlaceholder>
+                    </MapPlaceholder>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -220,7 +218,7 @@ const Mapping: React.FC = () => {
                   <CardTitle>Device Placement</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <MapPlaceholder />
+                  {hasApiKey ? <InteractiveMap /> : <MapPlaceholder />}
                 </CardContent>
               </Card>
             </div>
@@ -240,11 +238,46 @@ const Mapping: React.FC = () => {
         </TabsContent>
         
         <TabsContent value="soil" className="space-y-4">
-          <div className="bg-muted p-8 text-center rounded-md">
-            <h3 className="text-lg font-medium">Soil Type Mapping</h3>
-            <p className="text-muted-foreground mt-2">
-              Map different soil types across your fields to optimize irrigation strategies.
-            </p>
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className="lg:col-span-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Soil Type Mapping</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {hasApiKey ? <InteractiveMap /> : <MapPlaceholder />}
+                </CardContent>
+              </Card>
+            </div>
+            
+            <Card className="h-full">
+              <CardHeader>
+                <CardTitle>Soil Types</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-muted p-8 text-center rounded-md">
+                  <h3 className="text-sm font-medium">Soil Type Legend</h3>
+                  <div className="mt-4 space-y-2 text-left">
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 rounded bg-amber-200 mr-2"></div>
+                      <span className="text-xs">Sandy Soil</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 rounded bg-amber-800 mr-2"></div>
+                      <span className="text-xs">Clay Soil</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 rounded bg-amber-500 mr-2"></div>
+                      <span className="text-xs">Loam Soil</span>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 rounded bg-gray-400 mr-2"></div>
+                      <span className="text-xs">Rocky Soil</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
       </Tabs>
