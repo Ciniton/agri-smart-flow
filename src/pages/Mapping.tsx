@@ -1,77 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from "@/hooks/use-toast";
-import { 
-  Map, 
-  Layers, 
-  PenTool, 
-  MoveHorizontal, 
-  Ruler, 
-  Save, 
-  FileUp, 
-  Download, 
-  Leaf, 
-  Droplets, 
-  Plus, 
-  MapPin, 
-  Navigation,
-  Smartphone,
-  Edit
-} from 'lucide-react';
-import InteractiveMap from '@/components/mapping/InteractiveMap';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-
-const MapPlaceholder = ({ children }: { children?: React.ReactNode }) => (
-  <div className="bg-muted rounded-md h-[500px] flex items-center justify-center relative">
-    <div className="text-center">
-      <Map className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-      <h3 className="text-lg font-medium mb-2">Interactive Field Map</h3>
-      <p className="text-muted-foreground">
-        {localStorage.getItem('googleMapsApiKey') 
-          ? "Loading map..." 
-          : "Please set a Google Maps API key in Admin settings to enable mapping features."}
-      </p>
-    </div>
-    {children}
-  </div>
-);
-
-interface DeviceMarker {
-  id: string;
-  name: string;
-  type: 'sensor' | 'valve' | 'weather-station';
-  position: { lat: number; lng: number };
-}
-
-interface Field {
-  id: string;
-  name: string;
-  boundaries?: any; // In a real app, this would store polygon coordinates
-  area?: number; // In square meters or acres
-  lastModified: string;
-}
-
-interface Zone {
-  id: string;
-  name: string;
-  fieldId: string;
-  irrigationType: 'low' | 'medium' | 'high';
-  boundaries?: any; // In a real app, this would store polygon coordinates
-  lastModified: string;
-}
+import { Field, Zone, DeviceMarker } from '@/components/mapping/types';
+import FieldsTab from '@/components/mapping/FieldsTab';
+import ZonesTab from '@/components/mapping/ZonesTab';
+import DevicesTab from '@/components/mapping/DevicesTab';
+import SoilTab from '@/components/mapping/SoilTab';
 
 const Mapping: React.FC = () => {
   const [activeTab, setActiveTab] = useState('fields');
@@ -348,507 +283,73 @@ const Mapping: React.FC = () => {
         </TabsList>
         
         <TabsContent value="fields" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-3">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Field Overview</CardTitle>
-                  {location && (
-                    <CardDescription>
-                      Current Location: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
-                    </CardDescription>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  {hasApiKey ? (
-                    <InteractiveMap onLocationChange={handleLocationChange} mode={activeMode} />
-                  ) : (
-                    <MapPlaceholder />
-                  )}
-                  
-                  <div className="flex justify-between mt-4">
-                    <div className="flex space-x-2">
-                      <Button 
-                        variant={activeMode === 'pan' ? "default" : "outline"} 
-                        onClick={() => handleModeSelect('pan')}
-                      >
-                        <MoveHorizontal className="mr-2 h-4 w-4" />
-                        Pan
-                      </Button>
-                      <Button 
-                        variant={activeMode === 'draw' ? "default" : "outline"}
-                        onClick={() => handleModeSelect('draw')}
-                      >
-                        <PenTool className="mr-2 h-4 w-4" />
-                        Draw
-                      </Button>
-                      <Button 
-                        variant={activeMode === 'measure' ? "default" : "outline"}
-                        onClick={() => handleModeSelect('measure')}
-                      >
-                        <Ruler className="mr-2 h-4 w-4" />
-                        Measure
-                      </Button>
-                      <Button variant="outline" onClick={handleGetUserLocation}>
-                        <Navigation className="mr-2 h-4 w-4" />
-                        Locate
-                      </Button>
-                    </div>
-                    <div className="flex space-x-2">
-                      <Button variant="outline" onClick={handleImportMap}>
-                        <FileUp className="mr-2 h-4 w-4" />
-                        Import
-                      </Button>
-                      <Button variant="outline" onClick={handleExportMap}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Export
-                      </Button>
-                      <Button onClick={handleSaveMap}>
-                        <Save className="mr-2 h-4 w-4" />
-                        Save
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-            
-            <Card className="h-full">
-              <CardHeader>
-                <CardTitle>Fields</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {fields.map((field) => (
-                    <div key={field.id} className="flex items-center justify-between p-3 bg-muted rounded hover:bg-accent cursor-pointer">
-                      <div className="flex items-center">
-                        <Leaf className="mr-2 h-4 w-4 text-green-500" />
-                        <div>
-                          <span className="font-medium">{field.name}</span>
-                          {field.area && <p className="text-xs text-muted-foreground">{field.area.toLocaleString()} m²</p>}
-                        </div>
-                      </div>
-                      <Button variant="ghost" size="sm" onClick={() => handleEditField(field.id)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  
-                  <Dialog open={showAddFieldDialog} onOpenChange={setShowAddFieldDialog}>
-                    <DialogTrigger asChild>
-                      <Button className="w-full">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Field
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Add New Field</DialogTitle>
-                        <DialogDescription>
-                          Enter field details and then draw its boundaries on the map.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="fieldName" className="text-right">
-                            Field Name
-                          </Label>
-                          <Input
-                            id="fieldName"
-                            placeholder="Enter field name"
-                            className="col-span-3"
-                            value={newField.name}
-                            onChange={(e) => setNewField({...newField, name: e.target.value})}
-                          />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="fieldArea" className="text-right">
-                            Area (m²)
-                          </Label>
-                          <Input
-                            id="fieldArea"
-                            type="number"
-                            placeholder="Optional"
-                            className="col-span-3"
-                            value={newField.area}
-                            onChange={(e) => setNewField({...newField, area: e.target.value})}
-                          />
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowAddFieldDialog(false)}>
-                          Cancel
-                        </Button>
-                        <Button onClick={handleAddField}>
-                          Add Field
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <FieldsTab
+            location={location}
+            hasApiKey={hasApiKey}
+            activeMode={activeMode}
+            fields={fields}
+            newField={newField}
+            showAddFieldDialog={showAddFieldDialog}
+            onLocationChange={handleLocationChange}
+            onModeSelect={handleModeSelect}
+            onGetUserLocation={handleGetUserLocation}
+            onSaveMap={handleSaveMap}
+            onImportMap={handleImportMap}
+            onExportMap={handleExportMap}
+            setShowAddFieldDialog={setShowAddFieldDialog}
+            setNewField={setNewField}
+            handleEditField={handleEditField}
+            handleAddField={handleAddField}
+          />
         </TabsContent>
         
         <TabsContent value="zones" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-3">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Irrigation Zones</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {hasApiKey ? (
-                    <InteractiveMap onLocationChange={handleLocationChange} mode={activeMode} />
-                  ) : (
-                    <MapPlaceholder>
-                      <div className="absolute left-4 bottom-4 p-2 bg-white rounded shadow">
-                        <div className="flex items-center space-x-4">
-                          <div className="flex items-center">
-                            <div className="w-4 h-4 rounded bg-blue-300 mr-2"></div>
-                            <span className="text-xs">Low Irrigation</span>
-                          </div>
-                          <div className="flex items-center">
-                            <div className="w-4 h-4 rounded bg-blue-500 mr-2"></div>
-                            <span className="text-xs">Medium Irrigation</span>
-                          </div>
-                          <div className="flex items-center">
-                            <div className="w-4 h-4 rounded bg-blue-700 mr-2"></div>
-                            <span className="text-xs">High Irrigation</span>
-                          </div>
-                        </div>
-                      </div>
-                    </MapPlaceholder>
-                  )}
-                  
-                  <div className="flex justify-between mt-4">
-                    <div className="flex space-x-2">
-                      <Button 
-                        variant={activeMode === 'pan' ? "default" : "outline"} 
-                        onClick={() => handleModeSelect('pan')}
-                      >
-                        <MoveHorizontal className="mr-2 h-4 w-4" />
-                        Pan
-                      </Button>
-                      <Button 
-                        variant={activeMode === 'draw' ? "default" : "outline"}
-                        onClick={() => handleModeSelect('draw')}
-                      >
-                        <PenTool className="mr-2 h-4 w-4" />
-                        Draw Zone
-                      </Button>
-                      <Button variant="outline" onClick={handleGetUserLocation}>
-                        <Navigation className="mr-2 h-4 w-4" />
-                        Locate
-                      </Button>
-                    </div>
-                    <Button onClick={handleSaveMap}>
-                      <Save className="mr-2 h-4 w-4" />
-                      Save Zones
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-            
-            <Card className="h-full">
-              <CardHeader>
-                <CardTitle>Irrigation Zones</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {zones.map((zone) => (
-                    <div key={zone.id} className="flex items-center justify-between p-3 bg-muted rounded hover:bg-accent cursor-pointer">
-                      <div className="flex items-center">
-                        <Droplets className={`mr-2 h-4 w-4 ${
-                          zone.irrigationType === 'low' ? "text-blue-300" :
-                          zone.irrigationType === 'medium' ? "text-blue-500" : "text-blue-700"
-                        }`} />
-                        <span>{zone.name}</span>
-                      </div>
-                      <Button variant="ghost" size="sm" onClick={() => handleEditZone(zone.id)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  
-                  <Dialog open={showAddZoneDialog} onOpenChange={setShowAddZoneDialog}>
-                    <DialogTrigger asChild>
-                      <Button className="w-full">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Zone
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Add New Zone</DialogTitle>
-                        <DialogDescription>
-                          Enter zone details and then draw its boundaries on the map.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="zoneName" className="text-right">
-                            Zone Name
-                          </Label>
-                          <Input
-                            id="zoneName"
-                            placeholder="Enter zone name"
-                            className="col-span-3"
-                            value={newZone.name}
-                            onChange={(e) => setNewZone({...newZone, name: e.target.value})}
-                          />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="zoneField" className="text-right">
-                            Field
-                          </Label>
-                          <select
-                            id="zoneField"
-                            className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            value={newZone.fieldId}
-                            onChange={(e) => setNewZone({...newZone, fieldId: e.target.value})}
-                          >
-                            <option value="" disabled>Select a field</option>
-                            {fields.map(field => (
-                              <option key={field.id} value={field.id}>{field.name}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="zoneType" className="text-right">
-                            Irrigation Type
-                          </Label>
-                          <select
-                            id="zoneType"
-                            className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            value={newZone.irrigationType}
-                            onChange={(e) => setNewZone({...newZone, irrigationType: e.target.value as 'low' | 'medium' | 'high'})}
-                          >
-                            <option value="low">Low Irrigation</option>
-                            <option value="medium">Medium Irrigation</option>
-                            <option value="high">High Irrigation</option>
-                          </select>
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowAddZoneDialog(false)}>
-                          Cancel
-                        </Button>
-                        <Button onClick={handleAddZone}>
-                          Add Zone
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <ZonesTab
+            hasApiKey={hasApiKey}
+            activeMode={activeMode}
+            zones={zones}
+            fields={fields}
+            newZone={newZone}
+            showAddZoneDialog={showAddZoneDialog}
+            onLocationChange={handleLocationChange}
+            onModeSelect={handleModeSelect}
+            onGetUserLocation={handleGetUserLocation}
+            onSaveMap={handleSaveMap}
+            setShowAddZoneDialog={setShowAddZoneDialog}
+            setNewZone={setNewZone}
+            handleEditZone={handleEditZone}
+            handleAddZone={handleAddZone}
+          />
         </TabsContent>
         
         <TabsContent value="devices" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-3">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Device Placement</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {hasApiKey ? (
-                    <InteractiveMap onLocationChange={handleLocationChange} mode={activeMode} />
-                  ) : (
-                    <MapPlaceholder />
-                  )}
-                  
-                  <div className="flex justify-between mt-4">
-                    <div className="flex space-x-2">
-                      <Button 
-                        variant={activeMode === 'pan' ? "default" : "outline"} 
-                        onClick={() => handleModeSelect('pan')}
-                      >
-                        <MoveHorizontal className="mr-2 h-4 w-4" />
-                        Pan
-                      </Button>
-                      <Button variant="outline" onClick={handleGetUserLocation}>
-                        <Navigation className="mr-2 h-4 w-4" />
-                        Locate
-                      </Button>
-                      <Dialog open={showAddDeviceDialog} onOpenChange={setShowAddDeviceDialog}>
-                        <DialogTrigger asChild>
-                          <Button variant="outline">
-                            <MapPin className="mr-2 h-4 w-4" />
-                            Place Device
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Add New Device</DialogTitle>
-                            <DialogDescription>
-                              Enter device details to place it at the selected location.
-                              {location ? ` (${location.lat.toFixed(6)}, ${location.lng.toFixed(6)})` : ' Please select a location on the map first.'}
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="grid gap-4 py-4">
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor="deviceName" className="text-right">
-                                Device Name
-                              </Label>
-                              <Input
-                                id="deviceName"
-                                placeholder="Enter device name"
-                                className="col-span-3"
-                                value={newDevice.name}
-                                onChange={(e) => setNewDevice({...newDevice, name: e.target.value})}
-                              />
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                              <Label htmlFor="deviceType" className="text-right">
-                                Device Type
-                              </Label>
-                              <select
-                                id="deviceType"
-                                className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                value={newDevice.type}
-                                onChange={(e) => setNewDevice({...newDevice, type: e.target.value as 'sensor' | 'valve' | 'weather-station'})}
-                              >
-                                <option value="sensor">Soil Moisture Sensor</option>
-                                <option value="valve">Valve Controller</option>
-                                <option value="weather-station">Weather Station</option>
-                              </select>
-                            </div>
-                          </div>
-                          <DialogFooter>
-                            <Button variant="outline" onClick={() => setShowAddDeviceDialog(false)}>
-                              Cancel
-                            </Button>
-                            <Button onClick={handleAddDevice}>
-                              Add Device
-                            </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                    <Button onClick={handleSaveMap}>
-                      <Save className="mr-2 h-4 w-4" />
-                      Save Devices
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-            
-            <Card className="h-full">
-              <CardHeader>
-                <CardTitle>Devices</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {devices.map((device) => (
-                    <div key={device.id} className="flex items-center justify-between p-3 bg-muted rounded hover:bg-accent cursor-pointer">
-                      <div className="flex items-center">
-                        <Smartphone className="mr-2 h-4 w-4 text-blue-500" />
-                        <div>
-                          <span className="font-medium">{device.name}</span>
-                          <p className="text-xs text-muted-foreground">
-                            {device.position.lat.toFixed(4)}, {device.position.lng.toFixed(4)}
-                          </p>
-                        </div>
-                      </div>
-                      <Button variant="ghost" size="sm" onClick={() => handleEditDevice(device.id)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  
-                  <Button className="w-full" onClick={() => setShowAddDeviceDialog(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Device
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <DevicesTab
+            hasApiKey={hasApiKey}
+            activeMode={activeMode}
+            devices={devices}
+            location={location}
+            newDevice={newDevice}
+            showAddDeviceDialog={showAddDeviceDialog}
+            onLocationChange={handleLocationChange}
+            onModeSelect={handleModeSelect}
+            onGetUserLocation={handleGetUserLocation}
+            onSaveMap={handleSaveMap}
+            setShowAddDeviceDialog={setShowAddDeviceDialog}
+            setNewDevice={setNewDevice}
+            handleEditDevice={handleEditDevice}
+            handleAddDevice={handleAddDevice}
+          />
         </TabsContent>
         
         <TabsContent value="soil" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-3">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Soil Type Mapping</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {hasApiKey ? (
-                    <InteractiveMap onLocationChange={handleLocationChange} mode={activeMode} />
-                  ) : (
-                    <MapPlaceholder />
-                  )}
-                  
-                  <div className="flex justify-between mt-4">
-                    <div className="flex space-x-2">
-                      <Button 
-                        variant={activeMode === 'pan' ? "default" : "outline"} 
-                        onClick={() => handleModeSelect('pan')}
-                      >
-                        <MoveHorizontal className="mr-2 h-4 w-4" />
-                        Pan
-                      </Button>
-                      <Button 
-                        variant={activeMode === 'draw' ? "default" : "outline"}
-                        onClick={() => handleModeSelect('draw')}
-                      >
-                        <PenTool className="mr-2 h-4 w-4" />
-                        Draw Soil Zone
-                      </Button>
-                      <Button variant="outline" onClick={handleGetUserLocation}>
-                        <Navigation className="mr-2 h-4 w-4" />
-                        Locate
-                      </Button>
-                    </div>
-                    <Button onClick={handleSaveMap}>
-                      <Save className="mr-2 h-4 w-4" />
-                      Save Soil Map
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-            
-            <Card className="h-full">
-              <CardHeader>
-                <CardTitle>Soil Types</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="bg-muted p-8 text-center rounded-md">
-                  <h3 className="text-sm font-medium">Soil Type Legend</h3>
-                  <div className="mt-4 space-y-2 text-left">
-                    <div className="flex items-center">
-                      <div className="w-4 h-4 rounded bg-amber-200 mr-2"></div>
-                      <span className="text-xs">Sandy Soil</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-4 h-4 rounded bg-amber-800 mr-2"></div>
-                      <span className="text-xs">Clay Soil</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-4 h-4 rounded bg-green-700 mr-2"></div>
-                      <span className="text-xs">Loam Soil</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-4 h-4 rounded bg-gray-500 mr-2"></div>
-                      <span className="text-xs">Rocky Soil</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-4 h-4 rounded bg-blue-300 mr-2"></div>
-                      <span className="text-xs">Silty Soil</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <SoilTab
+            hasApiKey={hasApiKey}
+            activeMode={activeMode}
+            onLocationChange={handleLocationChange}
+            onModeSelect={handleModeSelect}
+            onGetUserLocation={handleGetUserLocation}
+            onSaveMap={handleSaveMap}
+          />
         </TabsContent>
       </Tabs>
     </div>
