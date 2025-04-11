@@ -17,7 +17,7 @@ const deviceData = [
   { id: '4', name: 'Valve Controller C2', zone: 'South Field', status: 'error', lastReading: '15 min ago' },
   { id: '5', name: 'Flow Meter M1', zone: 'Irrigation System', status: 'healthy', lastReading: '3 min ago' },
   { id: '6', name: 'Pump Control Unit', zone: 'Pump House', status: 'offline', lastReading: '1 hr ago' },
-] as const;
+];
 
 const waterUsageData = [
   { date: 'Mon', actual: 120, optimal: 100 },
@@ -34,7 +34,7 @@ const scheduleData = [
   { id: '2', zone: 'East Field - Zone 3', startTime: '10:15 AM', duration: '30 min', status: 'active' },
   { id: '3', zone: 'South Field - Zone 2', startTime: '02:00 PM', duration: '60 min', status: 'scheduled' },
   { id: '4', zone: 'West Field - Zone 4', startTime: '05:30 PM', duration: '40 min', status: 'scheduled' },
-] as const;
+];
 
 const weatherData = {
   location: 'Central Farm',
@@ -49,7 +49,7 @@ const weatherData = {
     { day: 'Thu', temperature: 22, condition: 'rainy' },
     { day: 'Fri', temperature: 23, condition: 'cloudy' },
   ],
-} as const;
+};
 
 const Dashboard: React.FC = () => {
   return (
