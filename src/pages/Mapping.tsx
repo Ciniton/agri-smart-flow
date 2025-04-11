@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -823,3 +824,16 @@ const Mapping: React.FC = () => {
                     <div className="flex items-center">
                       <div className="w-4 h-4 rounded bg-amber-800 mr-2"></div>
                       <span className="text-xs">Clay Soil</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
+export default Mapping;
