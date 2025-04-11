@@ -22,7 +22,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Layers, MoreVertical, Plus, Settings, RefreshCw, AlertCircle, Battery, Signal, ChevronDown, Wifi } from 'lucide-react';
+import { Layers, MoreVertical, Plus, Settings, RefreshCw, AlertCircle, Battery, Signal, ChevronDown, Wifi, Thermometer, Droplets, Wind } from 'lucide-react';
 import { toast } from "@/hooks/use-toast";
 
 interface Device {
@@ -42,9 +42,10 @@ interface Device {
 const Devices: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddDeviceDialog, setShowAddDeviceDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState('all');
   
   // Mock data for devices
-  const devices: Device[] = [
+  const [devices, setDevices] = useState<Device[]>([
     { 
       id: 'd1', 
       name: 'Valve Controller A1', 
@@ -123,13 +124,38 @@ const Devices: React.FC = () => {
       serialNumber: 'PC-2023-5012',
       firmwareVersion: '2.0.5',
     },
-  ];
+  ]);
 
-  const filteredDevices = devices.filter(device => 
-    device.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    device.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    device.zone.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const [newDevice, setNewDevice] = useState({
+    name: '',
+    type: '',
+    zone: '',
+    serialNumber: ''
+  });
+
+  const getFilteredDevices = (category?: string) => {
+    let filtered = devices.filter(device => 
+      device.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      device.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      device.zone.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    if (category && category !== 'all') {
+      switch (category) {
+        case 'sensors':
+          filtered = filtered.filter(device => device.type.includes('Sensor') || device.type.includes('Meter'));
+          break;
+        case 'controllers':
+          filtered = filtered.filter(device => device.type.includes('Controller'));
+          break;
+        case 'stations':
+          filtered = filtered.filter(device => device.type.includes('Station'));
+          break;
+      }
+    }
+
+    return filtered;
+  };
 
   const getStatusBadge = (status: Device['status']) => {
     switch (status) {
@@ -176,11 +202,189 @@ const Devices: React.FC = () => {
     );
   };
 
+  const getDeviceIcon = (type: string) => {
+    if (type.includes('Moisture') || type.includes('Soil')) return <Droplets className="h-4 w-4 mr-2 text-blue-500" />;
+    if (type.includes('Weather')) return <Wind className="h-4 w-4 mr-2 text-gray-500" />;
+    if (type.includes('Temperature')) return <Thermometer className="h-4 w-4 mr-2 text-red-500" />;
+    if (type.includes('Valve') || type.includes('Pump')) return <Settings className="h-4 w-4 mr-2 text-green-500" />;
+    if (type.includes('Flow') || type.includes('Meter')) return <Wifi className="h-4 w-4 mr-2 text-purple-500" />;
+    return <Layers className="h-4 w-4 mr-2 text-blue-500" />;
+  };
+
   const handleRefreshDevices = () => {
     toast({
       title: "Refreshing devices",
       description: "Retrieving latest status from all devices...",
     });
+    
+    // Simulate device status changes
+    setTimeout(() => {
+      const updatedDevices = devices.map(device => {
+        if (device.status === 'offline') {
+          return {
+            ...device, 
+            status: 'warning',
+            batteryLevel: 15,
+            signalStrength: 25,
+            lastReading: 'Just now'
+          };
+        }
+        return device;
+      });
+      
+      setDevices(updatedDevices);
+      
+      toast({
+        title: "Devices Refreshed",
+        description: "All device statuses have been updated.",
+      });
+    }, 1500);
+  };
+
+  const handleAddDevice = () => {
+    if (!newDevice.name || !newDevice.type || !newDevice.zone || !newDevice.serialNumber) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const device: Device = {
+      id: `d${Date.now()}`,
+      name: newDevice.name,
+      type: newDevice.type,
+      zone: newDevice.zone,
+      status: 'healthy',
+      lastReading: 'Just now',
+      batteryLevel: 100,
+      signalStrength: 80,
+      serialNumber: newDevice.serialNumber,
+      firmwareVersion: '1.0.0',
+    };
+    
+    setDevices([device, ...devices]);
+    setNewDevice({
+      name: '',
+      type: '',
+      zone: '',
+      serialNumber: ''
+    });
+    setShowAddDeviceDialog(false);
+    
+    toast({
+      title: "Device Added",
+      description: "New device has been added successfully.",
+    });
+  };
+
+  const handleDiagnoseDevice = (deviceId: string) => {
+    const device = devices.find(d => d.id === deviceId);
+    if (!device) return;
+    
+    toast({
+      title: "Diagnosing Device",
+      description: `Running diagnostics on ${device.name}...`,
+    });
+    
+    setTimeout(() => {
+      if (device.status === 'error' || device.status === 'warning') {
+        toast({
+          title: "Diagnostic Results",
+          description: `Issues found with ${device.name}. Please check connectivity and power supply.`,
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Diagnostic Results",
+          description: `${device.name} is operating normally. All systems functional.`,
+        });
+      }
+    }, 2000);
+  };
+
+  const renderDeviceCards = (filteredDevices: Device[]) => {
+    if (filteredDevices.length === 0) {
+      return (
+        <div className="col-span-full py-10 text-center">
+          <Layers className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-lg font-medium">No devices found</h3>
+          <p className="text-muted-foreground mt-1">Try adjusting your search or add a new device</p>
+        </div>
+      );
+    }
+    
+    return filteredDevices.map((device) => (
+      <Card key={device.id}>
+        <CardHeader className="pb-2">
+          <div className="flex justify-between items-start">
+            <div>
+              <div className="flex items-center">
+                {getDeviceIcon(device.type)}
+                <CardTitle className="text-lg">{device.name}</CardTitle>
+              </div>
+              <CardDescription>{device.type} - {device.zone}</CardDescription>
+            </div>
+            {getStatusBadge(device.status)}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Collapsible className="space-y-2">
+            <div className="flex justify-between">
+              <div className="text-sm text-muted-foreground">
+                Last Reading: {device.lastReading}
+              </div>
+              <div className="flex space-x-2">
+                {getBatteryIndicator(device.batteryLevel)}
+                {getSignalIndicator(device.signalStrength)}
+              </div>
+            </div>
+            
+            <CollapsibleTrigger className="flex items-center text-xs text-muted-foreground hover:text-primary transition-colors">
+              <span>Show Details</span>
+              <ChevronDown className="h-4 w-4 ml-1" />
+            </CollapsibleTrigger>
+            
+            <CollapsibleContent className="space-y-2 pt-2">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">Serial Number</p>
+                  <p className="text-xs font-medium">{device.serialNumber}</p>
+                </div>
+                {device.firmwareVersion && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Firmware</p>
+                    <p className="text-xs font-medium">{device.firmwareVersion}</p>
+                  </div>
+                )}
+                {device.lastMaintenance && (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Last Maintenance</p>
+                    <p className="text-xs font-medium">{device.lastMaintenance}</p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex justify-end space-x-2 pt-2">
+                <Button variant="outline" size="sm">
+                  <Settings className="mr-2 h-3 w-3" />
+                  Configure
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => handleDiagnoseDevice(device.id)}
+                >
+                  <AlertCircle className="mr-2 h-3 w-3" />
+                  Diagnose
+                </Button>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </CardContent>
+      </Card>
+    ));
   };
 
   return (
@@ -229,6 +433,8 @@ const Devices: React.FC = () => {
                     id="deviceName"
                     placeholder="Enter device name"
                     className="col-span-3"
+                    value={newDevice.name}
+                    onChange={(e) => setNewDevice({...newDevice, name: e.target.value})}
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -239,6 +445,8 @@ const Devices: React.FC = () => {
                     id="deviceType"
                     placeholder="Enter device type"
                     className="col-span-3"
+                    value={newDevice.type}
+                    onChange={(e) => setNewDevice({...newDevice, type: e.target.value})}
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -249,6 +457,8 @@ const Devices: React.FC = () => {
                     id="deviceZone"
                     placeholder="Enter zone location"
                     className="col-span-3"
+                    value={newDevice.zone}
+                    onChange={(e) => setNewDevice({...newDevice, zone: e.target.value})}
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -259,6 +469,8 @@ const Devices: React.FC = () => {
                     id="deviceSerial"
                     placeholder="Enter serial number"
                     className="col-span-3"
+                    value={newDevice.serialNumber}
+                    onChange={(e) => setNewDevice({...newDevice, serialNumber: e.target.value})}
                   />
                 </div>
               </div>
@@ -266,13 +478,7 @@ const Devices: React.FC = () => {
                 <Button variant="outline" onClick={() => setShowAddDeviceDialog(false)}>
                   Cancel
                 </Button>
-                <Button onClick={() => {
-                  toast({
-                    title: "Device Added",
-                    description: "New device has been added successfully.",
-                  });
-                  setShowAddDeviceDialog(false);
-                }}>
+                <Button onClick={handleAddDevice}>
                   Add Device
                 </Button>
               </DialogFooter>
@@ -281,7 +487,7 @@ const Devices: React.FC = () => {
         </div>
       </div>
       
-      <Tabs defaultValue="all" className="w-full">
+      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList>
           <TabsTrigger value="all">All Devices</TabsTrigger>
           <TabsTrigger value="sensors">Sensors</TabsTrigger>
@@ -291,93 +497,25 @@ const Devices: React.FC = () => {
         
         <TabsContent value="all" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filteredDevices.map((device) => (
-              <Card key={device.id}>
-                <CardHeader className="pb-2">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-lg">{device.name}</CardTitle>
-                      <CardDescription>{device.type} - {device.zone}</CardDescription>
-                    </div>
-                    {getStatusBadge(device.status)}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Collapsible className="space-y-2">
-                    <div className="flex justify-between">
-                      <div className="text-sm text-muted-foreground">
-                        Last Reading: {device.lastReading}
-                      </div>
-                      <div className="flex space-x-2">
-                        {getBatteryIndicator(device.batteryLevel)}
-                        {getSignalIndicator(device.signalStrength)}
-                      </div>
-                    </div>
-                    
-                    <CollapsibleTrigger className="flex items-center text-xs text-muted-foreground hover:text-primary transition-colors">
-                      <span>Show Details</span>
-                      <ChevronDown className="h-4 w-4 ml-1" />
-                    </CollapsibleTrigger>
-                    
-                    <CollapsibleContent className="space-y-2 pt-2">
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Serial Number</p>
-                          <p className="text-xs font-medium">{device.serialNumber}</p>
-                        </div>
-                        {device.firmwareVersion && (
-                          <div>
-                            <p className="text-xs text-muted-foreground">Firmware</p>
-                            <p className="text-xs font-medium">{device.firmwareVersion}</p>
-                          </div>
-                        )}
-                        {device.lastMaintenance && (
-                          <div>
-                            <p className="text-xs text-muted-foreground">Last Maintenance</p>
-                            <p className="text-xs font-medium">{device.lastMaintenance}</p>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="flex justify-end space-x-2 pt-2">
-                        <Button variant="outline" size="sm">
-                          <Settings className="mr-2 h-3 w-3" />
-                          Configure
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <AlertCircle className="mr-2 h-3 w-3" />
-                          Diagnose
-                        </Button>
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-                </CardContent>
-              </Card>
-            ))}
+            {renderDeviceCards(getFilteredDevices())}
           </div>
         </TabsContent>
         
-        <TabsContent value="sensors">
-          {/* Similar content to "all" but filtered for sensors */}
-          <div className="bg-muted p-8 text-center rounded-md">
-            <h3 className="text-lg font-medium">Sensor Management</h3>
-            <p className="text-muted-foreground mt-2">View and manage your sensor devices here.</p>
+        <TabsContent value="sensors" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {renderDeviceCards(getFilteredDevices('sensors'))}
           </div>
         </TabsContent>
         
-        <TabsContent value="controllers">
-          {/* Similar content to "all" but filtered for controllers */}
-          <div className="bg-muted p-8 text-center rounded-md">
-            <h3 className="text-lg font-medium">Controller Management</h3>
-            <p className="text-muted-foreground mt-2">View and manage your controller devices here.</p>
+        <TabsContent value="controllers" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {renderDeviceCards(getFilteredDevices('controllers'))}
           </div>
         </TabsContent>
         
-        <TabsContent value="stations">
-          {/* Similar content to "all" but filtered for stations */}
-          <div className="bg-muted p-8 text-center rounded-md">
-            <h3 className="text-lg font-medium">Station Management</h3>
-            <p className="text-muted-foreground mt-2">View and manage your weather and monitoring stations here.</p>
+        <TabsContent value="stations" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {renderDeviceCards(getFilteredDevices('stations'))}
           </div>
         </TabsContent>
       </Tabs>
