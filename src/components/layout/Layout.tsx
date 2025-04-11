@@ -8,7 +8,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      <div className="fixed z-10">
+      <div className="fixed z-10 h-full">
         <Sidebar />
       </div>
       
