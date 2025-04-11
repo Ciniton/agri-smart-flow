@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import InteractiveMap from '@/components/mapping/InteractiveMap';
 import MapPlaceholder from './MapPlaceholder';
@@ -7,6 +7,7 @@ import MapToolbar from './MapToolbar';
 import DeviceList from './DeviceList';
 import AddDeviceDialog from './AddDeviceDialog';
 import { DeviceMarker } from './types';
+import { toast } from "@/hooks/use-toast";
 
 interface DevicesTabProps {
   hasApiKey: boolean;
@@ -42,6 +43,7 @@ const DevicesTab: React.FC<DevicesTabProps> = ({
   handleAddDevice,
 }) => {
   const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
+  const mapRef = useRef<any>(null);
   
   const handleStartEditDevice = (deviceId: string) => {
     setEditingDeviceId(deviceId);
@@ -51,6 +53,18 @@ const DevicesTab: React.FC<DevicesTabProps> = ({
   const handleFinishEdit = () => {
     setEditingDeviceId(null);
     onSaveMap();
+  };
+
+  const handleGetLocation = () => {
+    if (mapRef.current && mapRef.current.getUserLocation) {
+      mapRef.current.getUserLocation();
+    } else {
+      toast({
+        title: "Map Not Ready",
+        description: "The map is still loading. Please try again in a moment.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -70,6 +84,7 @@ const DevicesTab: React.FC<DevicesTabProps> = ({
           <CardContent>
             {hasApiKey ? (
               <InteractiveMap 
+                ref={mapRef}
                 onLocationChange={onLocationChange} 
                 mode={activeMode} 
                 editingDeviceId={editingDeviceId} 
@@ -84,7 +99,7 @@ const DevicesTab: React.FC<DevicesTabProps> = ({
                 <MapToolbar
                   activeMode={activeMode}
                   onModeSelect={onModeSelect}
-                  onGetUserLocation={onGetUserLocation}
+                  onGetUserLocation={handleGetLocation}
                   onSave={editingDeviceId ? handleFinishEdit : onSaveMap}
                   showImportExport={false}
                   saveButtonText={editingDeviceId ? "Save Device Position" : "Save Devices"}

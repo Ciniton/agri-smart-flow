@@ -42,6 +42,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
   const deviceMarkersRef = useRef<Map<string, any>>(new Map());
   const polylineRef = useRef<any | null>(null);
   const measurePointsRef = useRef<any[]>([]);
+  const userMarkerRef = useRef<any | null>(null);
 
   const loadGoogleMapsScript = () => {
     const apiKey = localStorage.getItem('googleMapsApiKey');
@@ -192,6 +193,14 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
 
     setMap(mapInstance);
     setIsLoading(false);
+
+    // If we already have user position (from a previous getUserLocation call),
+    // center on it immediately
+    if (userPosition) {
+      mapInstance.setCenter(userPosition);
+      mapInstance.setZoom(15);
+      addUserLocationMarker(mapInstance, userPosition);
+    }
   };
 
   const renderDeviceMarkers = (mapInstance: any) => {
@@ -269,6 +278,62 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
     }
   };
 
+  // Add a nice pulsing marker for the user's location
+  const addUserLocationMarker = (mapInstance: any, position: {lat: number, lng: number}) => {
+    // Remove existing user marker if there is one
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setMap(null);
+    }
+
+    // Create a pulse effect with concentric circles
+    const pulseSymbol = {
+      path: window.google.maps.SymbolPath.CIRCLE,
+      fillColor: '#4285F4',
+      fillOpacity: 1,
+      strokeColor: '#ffffff',
+      strokeWeight: 2,
+      scale: 12
+    };
+
+    // Create the marker
+    const marker = new window.google.maps.Marker({
+      position,
+      map: mapInstance,
+      icon: pulseSymbol,
+      title: 'Your Location',
+      animation: window.google.maps.Animation.BOUNCE,
+      optimized: false // Needed for smooth CSS animations
+    });
+
+    // Apply a CSS animation to make it pulse
+    const markerElement = marker.getIcon() as any;
+    if (markerElement) {
+      markerElement.fillOpacity = 0.7;
+      markerElement.strokeOpacity = 0.7;
+    }
+
+    // Add an info window to show exact coordinates
+    const infoWindow = new window.google.maps.InfoWindow({
+      content: `<div class="p-2 text-sm">
+                  <strong>Your Location</strong><br>
+                  Lat: ${position.lat.toFixed(6)}<br>
+                  Lng: ${position.lng.toFixed(6)}
+                </div>`
+    });
+
+    // Add a click listener to open the info window
+    window.google.maps.event.addListener(marker, 'click', () => {
+      infoWindow.open(mapInstance, marker);
+    });
+
+    // Open the info window initially
+    infoWindow.open(mapInstance, marker);
+    setTimeout(() => infoWindow.close(), 5000); // Close after 5 seconds
+
+    // Save the marker reference
+    userMarkerRef.current = marker;
+  };
+
   const getUserLocation = () => {
     if (navigator.geolocation) {
       setIsLoading(true);
@@ -283,25 +348,8 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
             map.setCenter(userPos);
             map.setZoom(15);
             
-            // Clear existing markers
-            markersRef.current.forEach(marker => marker.setMap(null));
-            markersRef.current = [];
-            
             // Add a marker for the user's location
-            const marker = new window.google.maps.Marker({
-              position: userPos,
-              map,
-              title: 'Your Location',
-              icon: {
-                path: window.google.maps.SymbolPath.CIRCLE,
-                scale: 10,
-                fillColor: '#4285F4',
-                fillOpacity: 1,
-                strokeColor: '#ffffff',
-                strokeWeight: 2,
-              }
-            });
-            markersRef.current.push(marker);
+            addUserLocationMarker(map, userPos);
           }
           
           if (onLocationChange) {
@@ -317,14 +365,36 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
         },
         (error) => {
           console.error("Error getting location:", error);
-          setError('Failed to get your location. Please check your browser permissions.');
+          let errorMessage = "Failed to get your location.";
+          
+          switch(error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage = "Location permission denied. Please allow location access in your browser settings.";
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage = "Location information is unavailable.";
+              break;
+            case error.TIMEOUT:
+              errorMessage = "Location request timed out.";
+              break;
+            default:
+              errorMessage = "An unknown error occurred while trying to access your location.";
+              break;
+          }
+          
+          setError(errorMessage);
           setIsLoading(false);
           
           toast({
             title: "Location Error",
-            description: "Failed to detect your location. Please check your browser permissions.",
+            description: errorMessage,
             variant: "destructive",
           });
+        },
+        {
+          enableHighAccuracy: true,  // Try to get the most accurate position
+          timeout: 10000,           // Time to wait for a position
+          maximumAge: 0             // Don't use a cached position
         }
       );
     } else {
@@ -407,6 +477,10 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
       deviceMarkersRef.current.forEach(marker => {
         marker.setMap(null);
       });
+      
+      if (userMarkerRef.current) {
+        userMarkerRef.current.setMap(null);
+      }
     };
   }, []);
 
@@ -428,6 +502,14 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
       renderDeviceMarkers(map);
     }
   }, [devices, editingDeviceId, map]);
+
+  // Expose the getUserLocation method to parent components via ref
+  React.useImperativeHandle(
+    React.createRef(),
+    () => ({
+      getUserLocation
+    })
+  );
 
   return (
     <Card className="w-full h-full">

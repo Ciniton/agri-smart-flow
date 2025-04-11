@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from "@/hooks/use-toast";
 import { Field, Zone, DeviceMarker } from '@/components/mapping/types';
@@ -20,6 +20,13 @@ const Mapping: React.FC = () => {
   const [newField, setNewField] = useState({ name: '', area: '' });
   const [newZone, setNewZone] = useState({ name: '', fieldId: '', irrigationType: 'medium' as 'low' | 'medium' | 'high' });
   const [newDevice, setNewDevice] = useState({ name: '', type: 'sensor' as 'sensor' | 'valve' | 'weather-station' });
+  const mapRefs = useRef<{ [key: string]: any }>({
+    fields: null,
+    zones: null,
+    devices: null,
+    soil: null
+  });
+  
   const [fields, setFields] = useState<Field[]>([
     { id: 'f1', name: 'North Field', area: 12500, lastModified: '2025-03-15' },
     { id: 'f2', name: 'East Field', area: 8900, lastModified: '2025-03-20' },
@@ -260,11 +267,27 @@ const Mapping: React.FC = () => {
     });
   };
   
-  // Update this function to call getUserLocation on the map
+  // Update this function to call getUserLocation on the active map
   const handleGetUserLocation = () => {
-    // This function is intentionally empty as the location will be handled
-    // directly by the InteractiveMap component's getUserLocation method
-    // We still need this to prevent unwanted behavior when the button is clicked
+    const activeTabKey = activeTab as keyof typeof mapRefs.current;
+    const activeMapRef = mapRefs.current[activeTabKey];
+    
+    if (activeMapRef && activeMapRef.getUserLocation) {
+      activeMapRef.getUserLocation();
+    } else {
+      toast({
+        title: "Map Not Ready",
+        description: "The map is still loading or not available. Please try again in a moment.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Function to register map refs from tabs
+  const registerMapRef = (tabName: string, ref: any) => {
+    if (ref) {
+      mapRefs.current[tabName] = ref;
+    }
   };
   
   return (
@@ -300,6 +323,7 @@ const Mapping: React.FC = () => {
             setNewField={setNewField}
             handleEditField={handleEditField}
             handleAddField={handleAddField}
+            registerMapRef={(ref) => registerMapRef('fields', ref)}
           />
         </TabsContent>
         
@@ -319,6 +343,7 @@ const Mapping: React.FC = () => {
             setNewZone={setNewZone}
             handleEditZone={handleEditZone}
             handleAddZone={handleAddZone}
+            registerMapRef={(ref) => registerMapRef('zones', ref)}
           />
         </TabsContent>
         
@@ -349,6 +374,7 @@ const Mapping: React.FC = () => {
             onModeSelect={handleModeSelect}
             onGetUserLocation={handleGetUserLocation}
             onSaveMap={handleSaveMap}
+            registerMapRef={(ref) => registerMapRef('soil', ref)}
           />
         </TabsContent>
       </Tabs>

@@ -56,10 +56,14 @@ const MapToolbar: React.FC<MapToolbarProps> = ({
         <Button 
           variant="outline" 
           onClick={onGetUserLocation}
-          className="shadow-sm hover:shadow transition-all"
+          className="shadow-sm hover:shadow transition-all relative"
         >
           <Navigation className="mr-2 h-4 w-4" />
           Locate
+          <span className="absolute -top-1 -right-1 flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+          </span>
         </Button>
       </div>
       
