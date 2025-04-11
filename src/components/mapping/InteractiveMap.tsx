@@ -12,7 +12,7 @@ interface InteractiveMapProps {
 // Add proper type declarations for Google Maps
 declare global {
   interface Window {
-    google: typeof google;
+    google: any; // Using any to avoid the circular reference error
     initMap: () => void;
   }
 }
