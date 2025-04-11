@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -325,6 +324,13 @@ const Mapping: React.FC = () => {
     });
   };
   
+  // Update this function to call getUserLocation on the map
+  const handleGetUserLocation = () => {
+    // This function is intentionally empty as the location will be handled
+    // directly by the InteractiveMap component's getUserLocation method
+    // We still need this to prevent unwanted behavior when the button is clicked
+  };
+  
   return (
     <div className="space-y-6">
       <div>
@@ -382,7 +388,7 @@ const Mapping: React.FC = () => {
                         <Ruler className="mr-2 h-4 w-4" />
                         Measure
                       </Button>
-                      <Button variant="outline" onClick={() => handleLocationChange(0, 0)}>
+                      <Button variant="outline" onClick={handleGetUserLocation}>
                         <Navigation className="mr-2 h-4 w-4" />
                         Locate
                       </Button>
@@ -531,7 +537,7 @@ const Mapping: React.FC = () => {
                         <PenTool className="mr-2 h-4 w-4" />
                         Draw Zone
                       </Button>
-                      <Button variant="outline" onClick={() => handleLocationChange(0, 0)}>
+                      <Button variant="outline" onClick={handleGetUserLocation}>
                         <Navigation className="mr-2 h-4 w-4" />
                         Locate
                       </Button>
@@ -664,7 +670,7 @@ const Mapping: React.FC = () => {
                         <MoveHorizontal className="mr-2 h-4 w-4" />
                         Pan
                       </Button>
-                      <Button variant="outline" onClick={() => handleLocationChange(0, 0)}>
+                      <Button variant="outline" onClick={handleGetUserLocation}>
                         <Navigation className="mr-2 h-4 w-4" />
                         Locate
                       </Button>
@@ -795,7 +801,7 @@ const Mapping: React.FC = () => {
                         <PenTool className="mr-2 h-4 w-4" />
                         Draw Soil Zone
                       </Button>
-                      <Button variant="outline" onClick={() => handleLocationChange(0, 0)}>
+                      <Button variant="outline" onClick={handleGetUserLocation}>
                         <Navigation className="mr-2 h-4 w-4" />
                         Locate
                       </Button>
@@ -821,19 +827,3 @@ const Mapping: React.FC = () => {
                       <div className="w-4 h-4 rounded bg-amber-200 mr-2"></div>
                       <span className="text-xs">Sandy Soil</span>
                     </div>
-                    <div className="flex items-center">
-                      <div className="w-4 h-4 rounded bg-amber-800 mr-2"></div>
-                      <span className="text-xs">Clay Soil</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-};
-
-export default Mapping;

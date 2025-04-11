@@ -196,8 +196,12 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onLocationChange, mode 
             map.setCenter(userPos);
             map.setZoom(15);
             
+            // Clear existing markers
+            markersRef.current.forEach(marker => marker.setMap(null));
+            markersRef.current = [];
+            
             // Add a marker for the user's location
-            new window.google.maps.Marker({
+            const marker = new window.google.maps.Marker({
               position: userPos,
               map,
               title: 'Your Location',
@@ -210,6 +214,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onLocationChange, mode 
                 strokeWeight: 2,
               }
             });
+            markersRef.current.push(marker);
           }
           
           if (onLocationChange) {
