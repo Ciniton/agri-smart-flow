@@ -13,6 +13,7 @@ interface MapToolbarProps {
   showImportExport?: boolean;
   drawButtonText?: string;
   saveButtonText?: string;
+  locationPulsing?: boolean;
 }
 
 const MapToolbar: React.FC<MapToolbarProps> = ({
@@ -24,7 +25,8 @@ const MapToolbar: React.FC<MapToolbarProps> = ({
   onExport,
   showImportExport = true,
   drawButtonText = "Draw",
-  saveButtonText = "Save"
+  saveButtonText = "Save",
+  locationPulsing = true
 }) => {
   return (
     <div className="flex justify-between mt-4 w-full flex-wrap gap-2">
@@ -60,10 +62,12 @@ const MapToolbar: React.FC<MapToolbarProps> = ({
         >
           <Navigation className="mr-2 h-4 w-4" />
           Locate
-          <span className="absolute -top-1 -right-1 flex h-3 w-3">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
-          </span>
+          {locationPulsing && (
+            <span className="absolute -top-1 -right-1 flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+            </span>
+          )}
         </Button>
       </div>
       

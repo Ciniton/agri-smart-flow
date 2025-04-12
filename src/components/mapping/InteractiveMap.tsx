@@ -1,5 +1,4 @@
-
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { toast } from "@/hooks/use-toast";
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,12 +24,12 @@ declare global {
   }
 }
 
-const InteractiveMap: React.FC<InteractiveMapProps> = ({ 
+const InteractiveMap = forwardRef<any, InteractiveMapProps>(({ 
   onLocationChange, 
   mode = 'pan', 
   editingDeviceId = null,
   devices = [] 
-}) => {
+}, ref) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<any | null>(null);
   const [userPosition, setUserPosition] = useState<{ lat: number, lng: number } | null>(null);
@@ -43,6 +42,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
   const polylineRef = useRef<any | null>(null);
   const measurePointsRef = useRef<any[]>([]);
   const userMarkerRef = useRef<any | null>(null);
+  const mapInitializedRef = useRef<boolean>(false);
 
   const loadGoogleMapsScript = () => {
     const apiKey = localStorage.getItem('googleMapsApiKey');
@@ -53,7 +53,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
       return;
     }
 
-    if (window.google) {
+    if (window.google && window.google.maps) {
       initMap();
       return;
     }
@@ -193,6 +193,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
 
     setMap(mapInstance);
     setIsLoading(false);
+    mapInitializedRef.current = true;
 
     // If we already have user position (from a previous getUserLocation call),
     // center on it immediately
@@ -336,6 +337,16 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
 
   const getUserLocation = () => {
     if (navigator.geolocation) {
+      // Check if map is initialized first
+      if (!mapInitializedRef.current) {
+        toast({
+          title: "Map Not Ready",
+          description: "The map is still initializing. Please try again in a moment.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       setIsLoading(true);
       
       navigator.geolocation.getCurrentPosition(
@@ -459,58 +470,6 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
     }
   };
 
-  useEffect(() => {
-    loadGoogleMapsScript();
-    // Clean up function
-    return () => {
-      window.initMap = () => {}; // Reset global callback
-      
-      // Clean up polylines and markers
-      if (polylineRef.current) {
-        polylineRef.current.setMap(null);
-      }
-      
-      markersRef.current.forEach(marker => {
-        marker.setMap(null);
-      });
-      
-      deviceMarkersRef.current.forEach(marker => {
-        marker.setMap(null);
-      });
-      
-      if (userMarkerRef.current) {
-        userMarkerRef.current.setMap(null);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (userPosition && map) {
-      map.setCenter(userPosition);
-    }
-  }, [userPosition, map]);
-
-  useEffect(() => {
-    if (mode !== activeTool && map && drawingManagerRef.current) {
-      setMapMode(mode);
-    }
-  }, [mode, map]);
-
-  // Update device markers when devices change or when editing a device
-  useEffect(() => {
-    if (map && window.google) {
-      renderDeviceMarkers(map);
-    }
-  }, [devices, editingDeviceId, map]);
-
-  // Expose the getUserLocation method to parent components via ref
-  React.useImperativeHandle(
-    React.createRef(),
-    () => ({
-      getUserLocation
-    })
-  );
-
   return (
     <Card className="w-full h-full">
       <CardContent className="p-0 relative overflow-hidden rounded-md">
@@ -554,6 +513,8 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
       </CardContent>
     </Card>
   );
-};
+});
+
+InteractiveMap.displayName = 'InteractiveMap';
 
 export default InteractiveMap;

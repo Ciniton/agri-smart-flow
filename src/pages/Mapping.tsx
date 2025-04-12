@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from "@/hooks/use-toast";
@@ -267,12 +266,11 @@ const Mapping: React.FC = () => {
     });
   };
   
-  // Update this function to call getUserLocation on the active map
   const handleGetUserLocation = () => {
     const activeTabKey = activeTab as keyof typeof mapRefs.current;
     const activeMapRef = mapRefs.current[activeTabKey];
     
-    if (activeMapRef && activeMapRef.getUserLocation) {
+    if (activeMapRef && typeof activeMapRef.getUserLocation === 'function') {
       activeMapRef.getUserLocation();
     } else {
       toast({
@@ -283,13 +281,6 @@ const Mapping: React.FC = () => {
     }
   };
 
-  // Function to register map refs from tabs
-  const registerMapRef = (tabName: string, ref: any) => {
-    if (ref) {
-      mapRefs.current[tabName] = ref;
-    }
-  };
-  
   return (
     <div className="space-y-6">
       <div>
@@ -323,7 +314,7 @@ const Mapping: React.FC = () => {
             setNewField={setNewField}
             handleEditField={handleEditField}
             handleAddField={handleAddField}
-            registerMapRef={(ref) => registerMapRef('fields', ref)}
+            ref={(ref) => mapRefs.current.fields = ref}
           />
         </TabsContent>
         
@@ -343,7 +334,7 @@ const Mapping: React.FC = () => {
             setNewZone={setNewZone}
             handleEditZone={handleEditZone}
             handleAddZone={handleAddZone}
-            registerMapRef={(ref) => registerMapRef('zones', ref)}
+            ref={(ref) => mapRefs.current.zones = ref}
           />
         </TabsContent>
         
@@ -363,6 +354,7 @@ const Mapping: React.FC = () => {
             setNewDevice={setNewDevice}
             handleEditDevice={handleEditDevice}
             handleAddDevice={handleAddDevice}
+            ref={(ref) => mapRefs.current.devices = ref}
           />
         </TabsContent>
         
@@ -374,7 +366,7 @@ const Mapping: React.FC = () => {
             onModeSelect={handleModeSelect}
             onGetUserLocation={handleGetUserLocation}
             onSaveMap={handleSaveMap}
-            registerMapRef={(ref) => registerMapRef('soil', ref)}
+            ref={(ref) => mapRefs.current.soil = ref}
           />
         </TabsContent>
       </Tabs>

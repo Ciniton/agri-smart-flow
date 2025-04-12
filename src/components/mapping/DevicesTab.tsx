@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useImperativeHandle, forwardRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import InteractiveMap from '@/components/mapping/InteractiveMap';
 import MapPlaceholder from './MapPlaceholder';
@@ -26,7 +26,7 @@ interface DevicesTabProps {
   handleAddDevice: () => void;
 }
 
-const DevicesTab: React.FC<DevicesTabProps> = ({
+const DevicesTab = forwardRef<any, DevicesTabProps>(({
   hasApiKey,
   activeMode,
   devices,
@@ -41,9 +41,23 @@ const DevicesTab: React.FC<DevicesTabProps> = ({
   setNewDevice,
   handleEditDevice,
   handleAddDevice,
-}) => {
+}, ref) => {
   const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
   const mapRef = useRef<any>(null);
+  
+  useImperativeHandle(ref, () => ({
+    getUserLocation: () => {
+      if (mapRef.current && mapRef.current.getUserLocation) {
+        mapRef.current.getUserLocation();
+      } else {
+        toast({
+          title: "Map Not Ready",
+          description: "The map is still loading. Please try again in a moment.",
+          variant: "destructive",
+        });
+      }
+    }
+  }));
   
   const handleStartEditDevice = (deviceId: string) => {
     setEditingDeviceId(deviceId);
@@ -56,7 +70,7 @@ const DevicesTab: React.FC<DevicesTabProps> = ({
   };
 
   const handleGetLocation = () => {
-    if (mapRef.current && mapRef.current.getUserLocation) {
+    if (mapRef.current && typeof mapRef.current.getUserLocation === 'function') {
       mapRef.current.getUserLocation();
     } else {
       toast({
@@ -128,6 +142,8 @@ const DevicesTab: React.FC<DevicesTabProps> = ({
       />
     </div>
   );
-};
+});
+
+DevicesTab.displayName = 'DevicesTab';
 
 export default DevicesTab;
