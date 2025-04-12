@@ -1,11 +1,12 @@
 
-import React from 'react';
+import React, { useRef, useImperativeHandle, forwardRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import InteractiveMap from '@/components/mapping/InteractiveMap';
 import MapPlaceholder from './MapPlaceholder';
 import MapToolbar from './MapToolbar';
 import FieldList from './FieldList';
 import { Field } from './types';
+import { toast } from "@/hooks/use-toast";
 
 interface FieldsTabProps {
   location: { lat: number, lng: number } | null;
@@ -26,7 +27,7 @@ interface FieldsTabProps {
   handleAddField: () => void;
 }
 
-const FieldsTab: React.FC<FieldsTabProps> = ({
+const FieldsTab = forwardRef<any, FieldsTabProps>(({
   location,
   hasApiKey,
   activeMode,
@@ -43,7 +44,35 @@ const FieldsTab: React.FC<FieldsTabProps> = ({
   setNewField,
   handleEditField,
   handleAddField,
-}) => {
+}, ref) => {
+  const mapRef = useRef<any>(null);
+  
+  useImperativeHandle(ref, () => ({
+    getUserLocation: () => {
+      if (mapRef.current && mapRef.current.getUserLocation) {
+        mapRef.current.getUserLocation();
+      } else {
+        toast({
+          title: "Map Not Ready",
+          description: "The map is still loading. Please try again in a moment.",
+          variant: "destructive",
+        });
+      }
+    }
+  }));
+
+  const handleGetLocation = () => {
+    if (mapRef.current && typeof mapRef.current.getUserLocation === 'function') {
+      mapRef.current.getUserLocation();
+    } else {
+      toast({
+        title: "Map Not Ready",
+        description: "The map is still loading. Please try again in a moment.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
       <div className="lg:col-span-3">
@@ -58,7 +87,11 @@ const FieldsTab: React.FC<FieldsTabProps> = ({
           </CardHeader>
           <CardContent>
             {hasApiKey ? (
-              <InteractiveMap onLocationChange={onLocationChange} mode={activeMode} />
+              <InteractiveMap 
+                ref={mapRef}
+                onLocationChange={onLocationChange} 
+                mode={activeMode} 
+              />
             ) : (
               <MapPlaceholder />
             )}
@@ -66,7 +99,7 @@ const FieldsTab: React.FC<FieldsTabProps> = ({
             <MapToolbar
               activeMode={activeMode}
               onModeSelect={onModeSelect}
-              onGetUserLocation={onGetUserLocation}
+              onGetUserLocation={handleGetLocation}
               onSave={onSaveMap}
               onImport={onImportMap}
               onExport={onExportMap}
@@ -86,6 +119,8 @@ const FieldsTab: React.FC<FieldsTabProps> = ({
       />
     </div>
   );
-};
+});
+
+FieldsTab.displayName = 'FieldsTab';
 
 export default FieldsTab;

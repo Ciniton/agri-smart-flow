@@ -26,7 +26,7 @@ const MapToolbar: React.FC<MapToolbarProps> = ({
   showImportExport = true,
   drawButtonText = "Draw",
   saveButtonText = "Save",
-  locationPulsing = true
+  locationPulsing = false
 }) => {
   return (
     <div className="flex justify-between mt-4 w-full flex-wrap gap-2">

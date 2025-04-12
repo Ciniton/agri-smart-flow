@@ -1,11 +1,12 @@
 
-import React from 'react';
+import React, { useRef, useImperativeHandle, forwardRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import InteractiveMap from '@/components/mapping/InteractiveMap';
 import MapPlaceholder from './MapPlaceholder';
 import MapToolbar from './MapToolbar';
 import ZoneList from './ZoneList';
 import { Field, Zone } from './types';
+import { toast } from "@/hooks/use-toast";
 
 interface ZonesTabProps {
   hasApiKey: boolean;
@@ -24,7 +25,7 @@ interface ZonesTabProps {
   handleAddZone: () => void;
 }
 
-const ZonesTab: React.FC<ZonesTabProps> = ({
+const ZonesTab = forwardRef<any, ZonesTabProps>(({
   hasApiKey,
   activeMode,
   zones,
@@ -39,7 +40,35 @@ const ZonesTab: React.FC<ZonesTabProps> = ({
   setNewZone,
   handleEditZone,
   handleAddZone,
-}) => {
+}, ref) => {
+  const mapRef = useRef<any>(null);
+  
+  useImperativeHandle(ref, () => ({
+    getUserLocation: () => {
+      if (mapRef.current && mapRef.current.getUserLocation) {
+        mapRef.current.getUserLocation();
+      } else {
+        toast({
+          title: "Map Not Ready",
+          description: "The map is still loading. Please try again in a moment.",
+          variant: "destructive",
+        });
+      }
+    }
+  }));
+
+  const handleGetLocation = () => {
+    if (mapRef.current && typeof mapRef.current.getUserLocation === 'function') {
+      mapRef.current.getUserLocation();
+    } else {
+      toast({
+        title: "Map Not Ready",
+        description: "The map is still loading. Please try again in a moment.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
       <div className="lg:col-span-3">
@@ -49,7 +78,11 @@ const ZonesTab: React.FC<ZonesTabProps> = ({
           </CardHeader>
           <CardContent>
             {hasApiKey ? (
-              <InteractiveMap onLocationChange={onLocationChange} mode={activeMode} />
+              <InteractiveMap 
+                ref={mapRef}
+                onLocationChange={onLocationChange} 
+                mode={activeMode} 
+              />
             ) : (
               <MapPlaceholder>
                 <div className="absolute left-4 bottom-4 p-2 bg-white rounded shadow">
@@ -74,7 +107,7 @@ const ZonesTab: React.FC<ZonesTabProps> = ({
             <MapToolbar
               activeMode={activeMode}
               onModeSelect={onModeSelect}
-              onGetUserLocation={onGetUserLocation}
+              onGetUserLocation={handleGetLocation}
               onSave={onSaveMap}
               showImportExport={false}
               drawButtonText="Draw Zone"
@@ -95,6 +128,8 @@ const ZonesTab: React.FC<ZonesTabProps> = ({
       />
     </div>
   );
-};
+});
+
+ZonesTab.displayName = 'ZonesTab';
 
 export default ZonesTab;
