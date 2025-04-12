@@ -3,34 +3,28 @@ import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } f
 import { toast } from "@/hooks/use-toast";
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ZoomIn, ZoomOut, Navigation, Pencil, Ruler } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
+import { ZoomIn, ZoomOut, Navigation, Pencil, Ruler, Layers } from 'lucide-react';
+import { DeviceMarker, Field } from './types';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface InteractiveMapProps {
   onLocationChange?: (lat: number, lng: number) => void;
   mode?: 'pan' | 'draw' | 'measure';
   editingDeviceId?: string | null;
-  devices?: Array<{
-    id: string;
-    name: string;
-    type: 'sensor' | 'valve' | 'weather-station';
-    position: { lat: number; lng: number };
-  }>;
-}
-
-// Add proper type declarations for Google Maps
-declare global {
-  interface Window {
-    google: any;
-    initMap: () => void;
-  }
+  devices?: DeviceMarker[];
+  fields?: Field[];
+  onFieldDrawn?: (path: google.maps.LatLngLiteral[], area: { squareMeters: number; hectares: number }) => void;
+  activeFieldId?: string | null;
 }
 
 const InteractiveMap = forwardRef<any, InteractiveMapProps>(({ 
   onLocationChange, 
   mode = 'pan', 
   editingDeviceId = null,
-  devices = [] 
+  devices = [],
+  fields = [],
+  onFieldDrawn,
+  activeFieldId = null
 }, ref) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<any | null>(null);
@@ -39,6 +33,7 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [activeTool, setActiveTool] = useState<'pan' | 'draw' | 'measure'>(mode);
+  
   const drawingManagerRef = useRef<any | null>(null);
   const markersRef = useRef<any[]>([]);
   const deviceMarkersRef = useRef<Map<string, any>>(new Map());
@@ -47,6 +42,8 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
   const userMarkerRef = useRef<any | null>(null);
   const mapInitializedRef = useRef<boolean>(false);
   const scriptLoadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const fieldsLayerRef = useRef<Map<string, any>>(new Map());
+  const activePolygonRef = useRef<any | null>(null);
 
   const loadGoogleMapsScript = () => {
     const apiKey = localStorage.getItem('googleMapsApiKey');
@@ -133,10 +130,10 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
           ],
         },
         polygonOptions: {
-          fillColor: '#FF0000',
+          fillColor: '#4285F4',
           fillOpacity: 0.3,
           strokeWeight: 2,
-          strokeColor: '#FF0000',
+          strokeColor: '#4285F4',
           editable: true,
           draggable: true,
         },
@@ -149,10 +146,33 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
 
       // Listen for polygon complete event
       window.google.maps.event.addListener(drawingManager, 'polygoncomplete', (polygon) => {
-        toast({
-          title: "Field Drawn",
-          description: "Field boundary has been drawn. You can edit the points or save the field.",
-        });
+        // Calculate the area of the polygon
+        const path = polygon.getPath().getArray();
+        const pathCoordinates = path.map(point => ({
+          lat: point.lat(),
+          lng: point.lng()
+        }));
+        
+        // Calculate area in square meters
+        const areaInSquareMeters = window.google.maps.geometry.spherical.computeArea(path);
+        const areaInHectares = areaInSquareMeters / 10000; // Convert to hectares
+        
+        // Set this as the active polygon
+        if (activePolygonRef.current) {
+          activePolygonRef.current.setMap(null);
+        }
+        activePolygonRef.current = polygon;
+        
+        // Notify parent component about the drawn field
+        if (onFieldDrawn) {
+          onFieldDrawn(pathCoordinates, {
+            squareMeters: areaInSquareMeters,
+            hectares: areaInHectares
+          });
+        }
+        
+        // Switch back to pan mode
+        setMapMode('pan');
       });
 
       // Listen for marker complete event
@@ -228,10 +248,11 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
         console.log('Map is fully loaded and ready');
         setIsLoading(false);
         mapInitializedRef.current = true;
+        
+        // Render fields and devices after map is fully loaded
+        renderFieldsLayer(mapInstance);
+        renderDeviceMarkers(mapInstance);
       });
-
-      // Render device markers
-      renderDeviceMarkers(mapInstance);
 
       setMap(mapInstance);
 
@@ -247,6 +268,76 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
       setError('Failed to initialize Google Maps. Please reload the page and try again.');
       setIsLoading(false);
     }
+  };
+
+  const renderFieldsLayer = (mapInstance: any) => {
+    // Clear existing field layers
+    fieldsLayerRef.current.forEach((field) => {
+      field.setMap(null);
+    });
+    fieldsLayerRef.current.clear();
+
+    // Add polygons for each field that has boundaries
+    fields.forEach(field => {
+      if (field.boundaries && field.boundaries.length > 0) {
+        const isActive = field.id === activeFieldId;
+        
+        const fieldPolygon = new window.google.maps.Polygon({
+          paths: field.boundaries,
+          strokeColor: isActive ? '#22C55E' : '#4285F4',
+          strokeOpacity: 0.8,
+          strokeWeight: isActive ? 3 : 2,
+          fillColor: isActive ? '#22C55E' : '#4285F4',
+          fillOpacity: isActive ? 0.35 : 0.25,
+          map: mapInstance,
+          editable: false
+        });
+        
+        // Add click listener to select the field
+        window.google.maps.event.addListener(fieldPolygon, 'click', () => {
+          // Highlight this field
+          fieldPolygon.setOptions({
+            strokeColor: '#22C55E',
+            strokeWeight: 3,
+            fillColor: '#22C55E',
+            fillOpacity: 0.35
+          });
+          
+          // Center on the field
+          const bounds = new window.google.maps.LatLngBounds();
+          field.boundaries?.forEach(coord => {
+            bounds.extend(coord);
+          });
+          mapInstance.fitBounds(bounds);
+          
+          toast({
+            title: "Field Selected",
+            description: `Selected ${field.name}`,
+          });
+        });
+        
+        // Add label for the field
+        if (field.center) {
+          const label = new window.google.maps.Marker({
+            position: field.center,
+            map: mapInstance,
+            label: {
+              text: field.name,
+              color: "#FFFFFF",
+              fontWeight: "bold"
+            },
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 0, // Makes the marker invisible
+            }
+          });
+          
+          fieldsLayerRef.current.set(`${field.id}-label`, label);
+        }
+        
+        fieldsLayerRef.current.set(field.id, fieldPolygon);
+      }
+    });
   };
 
   const renderDeviceMarkers = (mapInstance: any) => {
@@ -305,18 +396,43 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
         }
       });
 
+      // Add info window with device details
+      const infoWindowContent = `
+        <div style="padding: 8px; max-width: 200px;">
+          <h3 style="margin: 0 0 8px; font-weight: 500;">${device.name}</h3>
+          <p style="margin: 0; font-size: 12px; color: #666;">
+            <strong>Type:</strong> ${device.type.replace('-', ' ')}
+          </p>
+          <p style="margin: 4px 0; font-size: 12px; color: #666;">
+            <strong>Position:</strong> ${device.position.lat.toFixed(6)}, ${device.position.lng.toFixed(6)}
+          </p>
+          ${device.fieldId ? 
+            `<p style="margin: 4px 0; font-size: 12px; color: #666;">
+              <strong>Field:</strong> ${fields.find(f => f.id === device.fieldId)?.name || 'Unknown'}
+            </p>` : ''
+          }
+        </div>
+      `;
+      
+      const infoWindow = new window.google.maps.InfoWindow({
+        content: infoWindowContent
+      });
+      
+      window.google.maps.event.addListener(marker, 'click', () => {
+        infoWindow.open(mapInstance, marker);
+      });
+
       deviceMarkersRef.current.set(device.id, marker);
     });
   };
 
   const getDeviceIcon = (type: 'sensor' | 'valve' | 'weather-station') => {
     // Return appropriate SVG icon URL based on device type
-    // These could be actual URLs to your SVG icons or data URLs
     switch (type) {
       case 'sensor':
-        return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4285F4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`);
+        return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4285F4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a8 8 0 0 1-8-8c0-5 8-13 8-13s8 8 8 13a8 8 0 0 1-8 8z"/></svg>`);
       case 'valve':
-        return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/></svg>`);
+        return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`);
       case 'weather-station':
         return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFC107" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2"/><path d="M12 21v2"/><path d="M4.22 4.22l1.42 1.42"/><path d="M18.36 18.36l1.42 1.42"/><path d="M1 12h2"/><path d="M21 12h2"/><path d="M4.22 19.78l1.42-1.42"/><path d="M18.36 5.64l1.42-1.42"/></svg>`);
       default:
@@ -464,6 +580,39 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
     }
   };
 
+  // Center the map on a specific location
+  const centerOnLocation = (location: google.maps.LatLngLiteral, zoom = 15) => {
+    if (map) {
+      map.setCenter(location);
+      map.setZoom(zoom);
+    }
+  };
+
+  // Show field on the map (highlight it)
+  const showField = (field: Field) => {
+    if (!map || !field.boundaries) return;
+
+    // First create new bounds
+    const bounds = new window.google.maps.LatLngBounds();
+    field.boundaries.forEach(coord => {
+      bounds.extend(coord);
+    });
+    
+    // Fit to these bounds
+    map.fitBounds(bounds);
+    
+    // Highlight this field on the map
+    const fieldPolygon = fieldsLayerRef.current.get(field.id);
+    if (fieldPolygon) {
+      fieldPolygon.setOptions({
+        strokeColor: '#22C55E',
+        strokeWeight: 3,
+        fillColor: '#22C55E',
+        fillOpacity: 0.35
+      });
+    }
+  };
+
   const handleZoomIn = () => {
     if (map) {
       const currentZoom = map.getZoom() || 5;
@@ -514,6 +663,23 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
     }
   };
 
+  // Toggle visibility of all fields
+  const toggleFieldsLayer = () => {
+    if (!map) return;
+    
+    const isLayerVisible = fieldsLayerRef.current.size > 0 && 
+      Array.from(fieldsLayerRef.current.values())[0].getMap() !== null;
+    
+    fieldsLayerRef.current.forEach((layer) => {
+      layer.setMap(isLayerVisible ? null : map);
+    });
+    
+    toast({
+      title: `Fields Layer ${isLayerVisible ? 'Hidden' : 'Shown'}`,
+      description: `All field boundaries are now ${isLayerVisible ? 'hidden' : 'visible'} on the map`,
+    });
+  };
+
   // Clean up function for timeouts and intervals
   useEffect(() => {
     return () => {
@@ -545,11 +711,27 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
     }
   }, [mode]);
 
+  // Update device markers when devices prop changes
+  useEffect(() => {
+    if (map && mapInitializedRef.current) {
+      renderDeviceMarkers(map);
+    }
+  }, [devices, editingDeviceId]);
+
+  // Update fields layer when fields prop changes
+  useEffect(() => {
+    if (map && mapInitializedRef.current) {
+      renderFieldsLayer(map);
+    }
+  }, [fields, activeFieldId]);
+
   // Expose methods via ref
   useImperativeHandle(ref, () => ({
     getUserLocation,
     getMap: () => map,
-    isInitialized: () => mapInitializedRef.current
+    isInitialized: () => mapInitializedRef.current,
+    centerOnLocation,
+    showField
   }));
 
   return (
@@ -597,21 +779,73 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
         ></div>
         
         <div className="absolute right-4 top-4 flex flex-col space-y-2">
-          <Button variant="outline" size="icon" className="bg-white/80 backdrop-blur-sm hover:bg-white" onClick={handleZoomIn}>
-            <ZoomIn className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="icon" className="bg-white/80 backdrop-blur-sm hover:bg-white" onClick={handleZoomOut}>
-            <ZoomOut className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="icon" className="bg-white/80 backdrop-blur-sm hover:bg-white" onClick={getUserLocation}>
-            <Navigation className="h-4 w-4" />
-          </Button>
-          <Button variant={activeTool === 'draw' ? "default" : "outline"} size="icon" className="bg-white/80 backdrop-blur-sm hover:bg-white" onClick={() => setMapMode('draw')}>
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button variant={activeTool === 'measure' ? "default" : "outline"} size="icon" className="bg-white/80 backdrop-blur-sm hover:bg-white" onClick={() => setMapMode('measure')}>
-            <Ruler className="h-4 w-4" />
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" className="bg-white/80 backdrop-blur-sm hover:bg-white" onClick={handleZoomIn}>
+                  <ZoomIn className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Zoom in</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" className="bg-white/80 backdrop-blur-sm hover:bg-white" onClick={handleZoomOut}>
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Zoom out</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" className="bg-white/80 backdrop-blur-sm hover:bg-white" onClick={getUserLocation}>
+                  <Navigation className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Your location</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant={activeTool === 'draw' ? "default" : "outline"} size="icon" className="bg-white/80 backdrop-blur-sm hover:bg-white" onClick={() => setMapMode('draw')}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Draw field</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant={activeTool === 'measure' ? "default" : "outline"} size="icon" className="bg-white/80 backdrop-blur-sm hover:bg-white" onClick={() => setMapMode('measure')}>
+                  <Ruler className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Measure distance</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" className="bg-white/80 backdrop-blur-sm hover:bg-white" onClick={toggleFieldsLayer}>
+                  <Layers className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Toggle field boundaries</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </CardContent>
     </Card>

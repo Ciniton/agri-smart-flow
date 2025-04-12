@@ -13,6 +13,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { MapPin } from 'lucide-react';
+import { Field } from './types';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface AddDeviceDialogProps {
   open: boolean;
@@ -23,6 +31,9 @@ interface AddDeviceDialogProps {
   onDeviceNameChange: (name: string) => void;
   onDeviceTypeChange: (type: 'sensor' | 'valve' | 'weather-station') => void;
   onAddDevice: () => void;
+  fields?: Field[];
+  selectedFieldId?: string;
+  onFieldSelect?: (fieldId: string) => void;
 }
 
 const AddDeviceDialog: React.FC<AddDeviceDialogProps> = ({
@@ -34,6 +45,9 @@ const AddDeviceDialog: React.FC<AddDeviceDialogProps> = ({
   onDeviceNameChange,
   onDeviceTypeChange,
   onAddDevice,
+  fields = [],
+  selectedFieldId = '',
+  onFieldSelect = () => {}
 }) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -62,29 +76,59 @@ const AddDeviceDialog: React.FC<AddDeviceDialogProps> = ({
               className="col-span-3"
               value={deviceName}
               onChange={(e) => onDeviceNameChange(e.target.value)}
+              autoFocus
             />
           </div>
+          
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="deviceType" className="text-right">
               Device Type
             </Label>
-            <select
-              id="deviceType"
-              className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            <Select
               value={deviceType}
-              onChange={(e) => onDeviceTypeChange(e.target.value as 'sensor' | 'valve' | 'weather-station')}
+              onValueChange={(value) => onDeviceTypeChange(value as 'sensor' | 'valve' | 'weather-station')}
             >
-              <option value="sensor">Soil Moisture Sensor</option>
-              <option value="valve">Valve Controller</option>
-              <option value="weather-station">Weather Station</option>
-            </select>
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="Select device type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sensor">Soil Moisture Sensor</SelectItem>
+                <SelectItem value="valve">Valve Controller</SelectItem>
+                <SelectItem value="weather-station">Weather Station</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="fieldSelect" className="text-right">
+              Assign to Field
+            </Label>
+            <Select
+              value={selectedFieldId}
+              onValueChange={onFieldSelect}
+            >
+              <SelectTrigger className="col-span-3" id="fieldSelect">
+                <SelectValue placeholder="Select a field" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Unassigned</SelectItem>
+                {fields.map(field => (
+                  <SelectItem key={field.id} value={field.id}>
+                    {field.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={onAddDevice}>
+          <Button 
+            onClick={onAddDevice}
+            disabled={!deviceName.trim() || !location}
+          >
             Add Device
           </Button>
         </DialogFooter>

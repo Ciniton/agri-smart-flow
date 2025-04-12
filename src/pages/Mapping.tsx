@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from "@/hooks/use-toast";
@@ -9,7 +10,6 @@ import SoilTab from '@/components/mapping/SoilTab';
 
 const Mapping: React.FC = () => {
   const [activeTab, setActiveTab] = useState('fields');
-  const [fieldNames, setFieldNames] = useState<string[]>(['North Field', 'East Field', 'South Field', 'West Field']);
   const [hasApiKey, setHasApiKey] = useState(false);
   const [location, setLocation] = useState<{lat: number, lng: number} | null>(null);
   const [activeMode, setActiveMode] = useState<'pan' | 'draw' | 'measure'>('pan');
@@ -26,22 +26,47 @@ const Mapping: React.FC = () => {
     soil: null
   });
   
-  const [fields, setFields] = useState<Field[]>([
-    { id: 'f1', name: 'North Field', area: 12500, lastModified: '2025-03-15' },
-    { id: 'f2', name: 'East Field', area: 8900, lastModified: '2025-03-20' },
-    { id: 'f3', name: 'South Field', area: 15200, lastModified: '2025-04-01' },
-    { id: 'f4', name: 'West Field', area: 7600, lastModified: '2025-04-05' },
-  ]);
-  const [zones, setZones] = useState<Zone[]>([
-    { id: 'z1', name: 'North Field - Zone 1', fieldId: 'f1', irrigationType: 'medium', lastModified: '2025-03-15' },
-    { id: 'z2', name: 'East Field - Zone 2', fieldId: 'f2', irrigationType: 'high', lastModified: '2025-03-20' },
-    { id: 'z3', name: 'South Field - Zone 3', fieldId: 'f3', irrigationType: 'low', lastModified: '2025-04-01' },
-  ]);
-  const [devices, setDevices] = useState<DeviceMarker[]>([
-    { id: '1', name: 'Soil Moisture Sensor 1', type: 'sensor', position: { lat: 40.7128, lng: -74.0060 } },
-    { id: '2', name: 'Valve Controller 1', type: 'valve', position: { lat: 40.7135, lng: -74.0050 } },
-    { id: '3', name: 'Weather Station 1', type: 'weather-station', position: { lat: 40.7140, lng: -74.0065 } }
-  ]);
+  // Use localStorage to persist field and device data
+  const [fields, setFields] = useState<Field[]>(() => {
+    const savedFields = localStorage.getItem('fields');
+    return savedFields ? JSON.parse(savedFields) : [
+      { id: 'f1', name: 'North Field', area: { squareMeters: 12500, hectares: 1.25 }, lastModified: '2025-03-15' },
+      { id: 'f2', name: 'East Field', area: { squareMeters: 8900, hectares: 0.89 }, lastModified: '2025-03-20' },
+      { id: 'f3', name: 'South Field', area: { squareMeters: 15200, hectares: 1.52 }, lastModified: '2025-04-01' },
+      { id: 'f4', name: 'West Field', area: { squareMeters: 7600, hectares: 0.76 }, lastModified: '2025-04-05' },
+    ];
+  });
+
+  const [zones, setZones] = useState<Zone[]>(() => {
+    const savedZones = localStorage.getItem('zones');
+    return savedZones ? JSON.parse(savedZones) : [
+      { id: 'z1', name: 'North Field - Zone 1', fieldId: 'f1', irrigationType: 'medium', lastModified: '2025-03-15' },
+      { id: 'z2', name: 'East Field - Zone 2', fieldId: 'f2', irrigationType: 'high', lastModified: '2025-03-20' },
+      { id: 'z3', name: 'South Field - Zone 3', fieldId: 'f3', irrigationType: 'low', lastModified: '2025-04-01' },
+    ];
+  });
+
+  const [devices, setDevices] = useState<DeviceMarker[]>(() => {
+    const savedDevices = localStorage.getItem('devices');
+    return savedDevices ? JSON.parse(savedDevices) : [
+      { id: '1', name: 'Soil Moisture Sensor 1', type: 'sensor', position: { lat: 40.7128, lng: -74.0060 }, fieldId: 'f1' },
+      { id: '2', name: 'Valve Controller 1', type: 'valve', position: { lat: 40.7135, lng: -74.0050 }, fieldId: 'f1' },
+      { id: '3', name: 'Weather Station 1', type: 'weather-station', position: { lat: 40.7140, lng: -74.0065 }, fieldId: 'f2' }
+    ];
+  });
+  
+  // Save fields, zones, and devices to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem('fields', JSON.stringify(fields));
+  }, [fields]);
+  
+  useEffect(() => {
+    localStorage.setItem('zones', JSON.stringify(zones));
+  }, [zones]);
+  
+  useEffect(() => {
+    localStorage.setItem('devices', JSON.stringify(devices));
+  }, [devices]);
   
   useEffect(() => {
     // Check if API key exists in localStorage
@@ -70,9 +95,14 @@ const Mapping: React.FC = () => {
   };
   
   const handleSaveMap = () => {
+    // Save current state to localStorage
+    localStorage.setItem('fields', JSON.stringify(fields));
+    localStorage.setItem('zones', JSON.stringify(zones));
+    localStorage.setItem('devices', JSON.stringify(devices));
+    
     toast({
       title: "Map Saved",
-      description: "Your map and zone configurations have been saved.",
+      description: "Your map configuration has been saved to local storage.",
     });
   };
   
@@ -114,23 +144,30 @@ const Mapping: React.FC = () => {
       description: "Preparing map data for export...",
     });
     
-    // This would typically generate a file for download
-    // For demonstration, we'll just show a success message
-    setTimeout(() => {
-      toast({
-        title: "Export Complete",
-        description: "Map data exported as GeoJSON. Download starting...",
-      });
-      
-      // Mock file download
-      const element = document.createElement('a');
-      element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent('{"type":"FeatureCollection","features":[]}'));
-      element.setAttribute('download', 'field_map.geojson');
-      element.style.display = 'none';
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
-    }, 1500);
+    // Prepare the export data
+    const exportData = {
+      fields,
+      zones,
+      devices,
+      exportDate: new Date().toISOString()
+    };
+    
+    // Convert to JSON
+    const jsonData = JSON.stringify(exportData, null, 2);
+    
+    // Create a file for download
+    const element = document.createElement('a');
+    const file = new Blob([jsonData], {type: 'application/json'});
+    element.href = URL.createObjectURL(file);
+    element.download = `field_map_export_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+    
+    toast({
+      title: "Export Complete",
+      description: "Farm map data exported as JSON. Download starting...",
+    });
   };
   
   const handleAddField = () => {
@@ -146,7 +183,11 @@ const Mapping: React.FC = () => {
     const field: Field = {
       id: `f${Date.now()}`,
       name: newField.name,
-      area: newField.area ? Number(newField.area) : undefined,
+      area: newField.area ? 
+        { 
+          squareMeters: Number(newField.area), 
+          hectares: Number(newField.area) / 10000 
+        } : undefined,
       lastModified: new Date().toISOString().split('T')[0]
     };
     
@@ -314,6 +355,7 @@ const Mapping: React.FC = () => {
             setNewField={setNewField}
             handleEditField={handleEditField}
             handleAddField={handleAddField}
+            setFields={setFields}
             ref={(ref) => mapRefs.current.fields = ref}
           />
         </TabsContent>
@@ -343,6 +385,7 @@ const Mapping: React.FC = () => {
             hasApiKey={hasApiKey}
             activeMode={activeMode}
             devices={devices}
+            fields={fields}
             location={location}
             newDevice={newDevice}
             showAddDeviceDialog={showAddDeviceDialog}
@@ -354,6 +397,7 @@ const Mapping: React.FC = () => {
             setNewDevice={setNewDevice}
             handleEditDevice={handleEditDevice}
             handleAddDevice={handleAddDevice}
+            setDevices={setDevices}
             ref={(ref) => mapRefs.current.devices = ref}
           />
         </TabsContent>

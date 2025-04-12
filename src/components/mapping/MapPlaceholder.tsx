@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
-import { Map } from 'lucide-react';
+import { Map, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from "@/hooks/use-toast";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface MapPlaceholderProps {
   children?: React.ReactNode;
@@ -88,11 +89,26 @@ const MapPlaceholder: React.FC<MapPlaceholderProps> = ({ children }) => {
                   </Button>
                 </div>
                 <div className="text-xs text-muted-foreground mt-4 p-3 bg-muted/50 rounded">
-                  <p className="font-medium mb-1">How to get a Google Maps API Key:</p>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="font-medium">How to get a Google Maps API Key:</p>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full">
+                            <Info className="h-4 w-4" />
+                            <span className="sr-only">More info</span>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-sm">
+                          <p>You need to enable both the Maps JavaScript API and the Drawing API in your Google Cloud Console.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <ol className="list-decimal list-inside text-left space-y-1">
-                    <li>Go to the Google Cloud Console</li>
+                    <li>Go to the <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Google Cloud Console</a></li>
                     <li>Create a new project or select an existing one</li>
-                    <li>Enable Maps JavaScript API</li>
+                    <li>Enable Maps JavaScript API and Drawing API</li>
                     <li>Create an API key in Credentials</li>
                   </ol>
                 </div>
