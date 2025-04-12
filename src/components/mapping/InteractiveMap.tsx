@@ -1,8 +1,10 @@
+
 import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { toast } from "@/hooks/use-toast";
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ZoomIn, ZoomOut, Navigation, Pencil, Ruler } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface InteractiveMapProps {
   onLocationChange?: (lat: number, lng: number) => void;
@@ -34,6 +36,7 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
   const [map, setMap] = useState<any | null>(null);
   const [userPosition, setUserPosition] = useState<{ lat: number, lng: number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [activeTool, setActiveTool] = useState<'pan' | 'draw' | 'measure'>(mode);
   const drawingManagerRef = useRef<any | null>(null);
@@ -43,6 +46,7 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
   const measurePointsRef = useRef<any[]>([]);
   const userMarkerRef = useRef<any | null>(null);
   const mapInitializedRef = useRef<boolean>(false);
+  const scriptLoadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadGoogleMapsScript = () => {
     const apiKey = localStorage.getItem('googleMapsApiKey');
@@ -58,13 +62,43 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
       return;
     }
 
-    window.initMap = initMap;
+    // Set up a progress simulation for better UX
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+      progress += 5;
+      if (progress > 95) {
+        clearInterval(progressInterval);
+      } else {
+        setLoadingProgress(progress);
+      }
+    }, 500);
+
+    // Timeout for script loading
+    scriptLoadingTimeoutRef.current = setTimeout(() => {
+      clearInterval(progressInterval);
+      setError('Google Maps is taking too long to load. Check your internet connection or API key.');
+      setIsLoading(false);
+    }, 15000); // 15 second timeout
+
+    window.initMap = () => {
+      clearInterval(progressInterval);
+      if (scriptLoadingTimeoutRef.current) {
+        clearTimeout(scriptLoadingTimeoutRef.current);
+      }
+      setLoadingProgress(100);
+      initMap();
+    };
+
     const script = document.createElement('script');
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=drawing,geometry&callback=initMap`;
     script.async = true;
     script.defer = true;
     script.onerror = () => {
-      setError('Failed to load Google Maps. Please check your API key.');
+      clearInterval(progressInterval);
+      if (scriptLoadingTimeoutRef.current) {
+        clearTimeout(scriptLoadingTimeoutRef.current);
+      }
+      setError('Failed to load Google Maps. Please check your API key and internet connection.');
       setIsLoading(false);
     };
     document.head.appendChild(script);
@@ -73,134 +107,145 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
   const initMap = () => {
     if (!mapRef.current) return;
 
-    // Default location (centered on North America)
-    const defaultLocation = { lat: 39.8283, lng: -98.5795 };
-    
-    const mapInstance = new window.google.maps.Map(mapRef.current, {
-      center: userPosition || defaultLocation,
-      zoom: 5,
-      mapTypeId: 'satellite',
-      mapTypeControl: true,
-      streetViewControl: false,
-      fullscreenControl: true,
-      zoomControl: false, // We'll use our custom zoom controls
-    });
-
-    // Initialize the DrawingManager
-    const drawingManager = new window.google.maps.drawing.DrawingManager({
-      drawingMode: null,
-      drawingControl: false,
-      drawingControlOptions: {
-        position: window.google.maps.ControlPosition.TOP_CENTER,
-        drawingModes: [
-          window.google.maps.drawing.OverlayType.POLYGON,
-          window.google.maps.drawing.OverlayType.MARKER,
-        ],
-      },
-      polygonOptions: {
-        fillColor: '#FF0000',
-        fillOpacity: 0.3,
-        strokeWeight: 2,
-        strokeColor: '#FF0000',
-        editable: true,
-        draggable: true,
-      },
-      markerOptions: {
-        draggable: true,
-      },
-    });
-    drawingManager.setMap(mapInstance);
-    drawingManagerRef.current = drawingManager;
-
-    // Listen for polygon complete event
-    window.google.maps.event.addListener(drawingManager, 'polygoncomplete', (polygon) => {
-      toast({
-        title: "Field Drawn",
-        description: "Field boundary has been drawn. You can edit the points or save the field.",
-      });
-    });
-
-    // Listen for marker complete event
-    window.google.maps.event.addListener(drawingManager, 'markercomplete', (marker) => {
-      const position = marker.getPosition();
-      if (position && onLocationChange) {
-        onLocationChange(position.lat(), position.lng());
-      }
-      markersRef.current.push(marker);
-      toast({
-        title: "Device Placed",
-        description: `Device marker placed at ${position?.lat().toFixed(6)}, ${position?.lng().toFixed(6)}`,
-      });
-    });
-
-    // Set up click handler for measuring and map interaction
-    window.google.maps.event.addListener(mapInstance, 'click', (event) => {
-      const clickedLocation = event.latLng;
+    try {
+      // Default location (centered on North America)
+      const defaultLocation = { lat: 39.8283, lng: -98.5795 };
       
-      // If in measure mode, add measurement points
-      if (activeTool === 'measure') {
-        measurePointsRef.current.push(clickedLocation);
-        
-        // Add a marker at the clicked point
-        const marker = new window.google.maps.Marker({
-          position: clickedLocation,
-          map: mapInstance,
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            scale: 7,
-            fillColor: '#4285F4',
-            fillOpacity: 1,
-            strokeColor: '#ffffff',
-            strokeWeight: 2,
-          }
+      const mapInstance = new window.google.maps.Map(mapRef.current, {
+        center: userPosition || defaultLocation,
+        zoom: 5,
+        mapTypeId: 'satellite',
+        mapTypeControl: true,
+        streetViewControl: false,
+        fullscreenControl: true,
+        zoomControl: false, // We'll use our custom zoom controls
+      });
+
+      // Initialize the DrawingManager
+      const drawingManager = new window.google.maps.drawing.DrawingManager({
+        drawingMode: null,
+        drawingControl: false,
+        drawingControlOptions: {
+          position: window.google.maps.ControlPosition.TOP_CENTER,
+          drawingModes: [
+            window.google.maps.drawing.OverlayType.POLYGON,
+            window.google.maps.drawing.OverlayType.MARKER,
+          ],
+        },
+        polygonOptions: {
+          fillColor: '#FF0000',
+          fillOpacity: 0.3,
+          strokeWeight: 2,
+          strokeColor: '#FF0000',
+          editable: true,
+          draggable: true,
+        },
+        markerOptions: {
+          draggable: true,
+        },
+      });
+      drawingManager.setMap(mapInstance);
+      drawingManagerRef.current = drawingManager;
+
+      // Listen for polygon complete event
+      window.google.maps.event.addListener(drawingManager, 'polygoncomplete', (polygon) => {
+        toast({
+          title: "Field Drawn",
+          description: "Field boundary has been drawn. You can edit the points or save the field.",
         });
-        markersRef.current.push(marker);
-        
-        // If there are at least 2 points, draw or update the measuring line
-        if (measurePointsRef.current.length >= 2) {
-          if (polylineRef.current) {
-            polylineRef.current.setPath(measurePointsRef.current);
-          } else {
-            polylineRef.current = new window.google.maps.Polyline({
-              path: measurePointsRef.current,
-              geodesic: true,
-              strokeColor: '#4285F4',
-              strokeOpacity: 1.0,
-              strokeWeight: 3
-            });
-            polylineRef.current.setMap(mapInstance);
-          }
-          
-          // Calculate and display distance
-          const lastPoint = measurePointsRef.current[measurePointsRef.current.length - 1];
-          const prevPoint = measurePointsRef.current[measurePointsRef.current.length - 2];
-          const distance = window.google.maps.geometry.spherical.computeDistanceBetween(prevPoint, lastPoint);
-          
-          toast({
-            title: "Distance Measurement",
-            description: `Last segment: ${(distance / 1000).toFixed(2)} km`,
-          });
+      });
+
+      // Listen for marker complete event
+      window.google.maps.event.addListener(drawingManager, 'markercomplete', (marker) => {
+        const position = marker.getPosition();
+        if (position && onLocationChange) {
+          onLocationChange(position.lat(), position.lng());
         }
-      } 
-      // In other modes, simply update the location
-      else if (onLocationChange) {
-        onLocationChange(clickedLocation.lat(), clickedLocation.lng());
+        markersRef.current.push(marker);
+        toast({
+          title: "Device Placed",
+          description: `Device marker placed at ${position?.lat().toFixed(6)}, ${position?.lng().toFixed(6)}`,
+        });
+      });
+
+      // Set up click handler for measuring and map interaction
+      window.google.maps.event.addListener(mapInstance, 'click', (event) => {
+        const clickedLocation = event.latLng;
+        
+        // If in measure mode, add measurement points
+        if (activeTool === 'measure') {
+          measurePointsRef.current.push(clickedLocation);
+          
+          // Add a marker at the clicked point
+          const marker = new window.google.maps.Marker({
+            position: clickedLocation,
+            map: mapInstance,
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 7,
+              fillColor: '#4285F4',
+              fillOpacity: 1,
+              strokeColor: '#ffffff',
+              strokeWeight: 2,
+            }
+          });
+          markersRef.current.push(marker);
+          
+          // If there are at least 2 points, draw or update the measuring line
+          if (measurePointsRef.current.length >= 2) {
+            if (polylineRef.current) {
+              polylineRef.current.setPath(measurePointsRef.current);
+            } else {
+              polylineRef.current = new window.google.maps.Polyline({
+                path: measurePointsRef.current,
+                geodesic: true,
+                strokeColor: '#4285F4',
+                strokeOpacity: 1.0,
+                strokeWeight: 3
+              });
+              polylineRef.current.setMap(mapInstance);
+            }
+            
+            // Calculate and display distance
+            const lastPoint = measurePointsRef.current[measurePointsRef.current.length - 1];
+            const prevPoint = measurePointsRef.current[measurePointsRef.current.length - 2];
+            const distance = window.google.maps.geometry.spherical.computeDistanceBetween(prevPoint, lastPoint);
+            
+            toast({
+              title: "Distance Measurement",
+              description: `Last segment: ${(distance / 1000).toFixed(2)} km`,
+            });
+          }
+        } 
+        // In other modes, simply update the location
+        else if (onLocationChange) {
+          onLocationChange(clickedLocation.lat(), clickedLocation.lng());
+        }
+      });
+
+      // Notify when map is idle (fully loaded)
+      window.google.maps.event.addListenerOnce(mapInstance, 'idle', () => {
+        console.log('Map is fully loaded and ready');
+        setIsLoading(false);
+        mapInitializedRef.current = true;
+      });
+
+      // Render device markers
+      renderDeviceMarkers(mapInstance);
+
+      setMap(mapInstance);
+
+      // If we already have user position (from a previous getUserLocation call),
+      // center on it immediately
+      if (userPosition) {
+        mapInstance.setCenter(userPosition);
+        mapInstance.setZoom(15);
+        addUserLocationMarker(mapInstance, userPosition);
       }
-    });
-
-    // Render device markers
-    renderDeviceMarkers(mapInstance);
-
-    setMap(mapInstance);
-    setIsLoading(false);
-    mapInitializedRef.current = true;
-
-    // If we already have user position (from a previous getUserLocation call),
-    // center on it immediately
-    if (userPosition) {
-      mapInstance.setCenter(userPosition);
-      mapInstance.setZoom(15);
-      addUserLocationMarker(mapInstance, userPosition);
+    } catch (err) {
+      console.error('Error initializing map:', err);
+      setError('Failed to initialize Google Maps. Please reload the page and try again.');
+      setIsLoading(false);
     }
   };
 
@@ -347,7 +392,10 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
         return;
       }
       
-      setIsLoading(true);
+      toast({
+        title: "Getting Location",
+        description: "Detecting your current location...",
+      });
       
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -371,8 +419,6 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
             title: "Location Detected",
             description: `Your location has been detected at ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
           });
-          
-          setIsLoading(false);
         },
         (error) => {
           console.error("Error getting location:", error);
@@ -394,7 +440,6 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
           }
           
           setError(errorMessage);
-          setIsLoading(false);
           
           toast({
             title: "Location Error",
@@ -410,7 +455,6 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
       );
     } else {
       setError('Geolocation is not supported by your browser');
-      setIsLoading(false);
       
       toast({
         title: "Location Not Supported",
@@ -470,20 +514,79 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
     }
   };
 
+  // Clean up function for timeouts and intervals
+  useEffect(() => {
+    return () => {
+      if (scriptLoadingTimeoutRef.current) {
+        clearTimeout(scriptLoadingTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Initialize map when component mounts
+  useEffect(() => {
+    loadGoogleMapsScript();
+
+    // Clean up function
+    return () => {
+      if (scriptLoadingTimeoutRef.current) {
+        clearTimeout(scriptLoadingTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Update mode when prop changes
+  useEffect(() => {
+    if (mode !== activeTool) {
+      setActiveTool(mode);
+      if (map && drawingManagerRef.current) {
+        setMapMode(mode);
+      }
+    }
+  }, [mode]);
+
+  // Expose methods via ref
+  useImperativeHandle(ref, () => ({
+    getUserLocation,
+    getMap: () => map,
+    isInitialized: () => mapInitializedRef.current
+  }));
+
   return (
     <Card className="w-full h-full">
       <CardContent className="p-0 relative overflow-hidden rounded-md">
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-muted z-10">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted z-10">
+            <div className="flex items-center justify-center mb-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+            </div>
+            <div className="text-center max-w-xs px-4">
+              <h3 className="font-medium mb-2">Loading Map</h3>
+              <div className="w-full bg-gray-200 rounded-full h-2.5 mb-4">
+                <div className="bg-primary h-2.5 rounded-full" style={{ width: `${loadingProgress}%` }}></div>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                This may take a moment on slower connections
+              </p>
+            </div>
           </div>
         )}
         
         {error && (
           <div className="absolute inset-0 flex items-center justify-center bg-muted z-10 p-6">
-            <div className="text-center">
+            <div className="text-center max-w-md">
               <p className="text-destructive font-medium mb-4">{error}</p>
-              <Button onClick={loadGoogleMapsScript}>Retry Loading Map</Button>
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground mb-4">
+                  If you're having trouble loading the map, try these solutions:
+                </p>
+                <ul className="text-sm text-left list-disc list-inside mb-4">
+                  <li>Check your internet connection</li>
+                  <li>Verify your Google Maps API key is valid</li>
+                  <li>Try refreshing the page</li>
+                </ul>
+                <Button onClick={loadGoogleMapsScript}>Retry Loading Map</Button>
+              </div>
             </div>
           </div>
         )}
