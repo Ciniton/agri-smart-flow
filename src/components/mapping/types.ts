@@ -12,8 +12,8 @@ export interface DeviceMarker {
 export interface Field {
   id: string;
   name: string;
-  boundaries?: google.maps.LatLngLiteral[]; // Store polygon coordinates
-  center?: google.maps.LatLngLiteral; // Center point of the field
+  boundaries?: { lat: number; lng: number }[]; // Store polygon coordinates
+  center?: { lat: number; lng: number }; // Center point of the field
   area?: {
     squareMeters: number;
     hectares: number;
@@ -27,7 +27,7 @@ export interface Zone {
   name: string;
   fieldId: string;
   irrigationType: 'low' | 'medium' | 'high';
-  boundaries?: google.maps.LatLngLiteral[]; // Store polygon coordinates
+  boundaries?: { lat: number; lng: number }[]; // Store polygon coordinates
   lastModified: string;
 }
 

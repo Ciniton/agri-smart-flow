@@ -1,3 +1,4 @@
+
 import React, { useRef, useImperativeHandle, forwardRef, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import InteractiveMap from '@/components/mapping/InteractiveMap';
@@ -50,7 +51,7 @@ const FieldsTab = forwardRef<any, FieldsTabProps>(({
   const mapRef = useRef<any>(null);
   const [calculatedArea, setCalculatedArea] = useState<{ squareMeters: number; hectares: number } | null>(null);
   const [activeFieldId, setActiveFieldId] = useState<string | null>(null);
-  const [drawnFieldPath, setDrawnFieldPath] = useState<google.maps.LatLngLiteral[] | null>(null);
+  const [drawnFieldPath, setDrawnFieldPath] = useState<{ lat: number; lng: number }[] | null>(null);
   
   useImperativeHandle(ref, () => ({
     getUserLocation: () => {
@@ -78,7 +79,7 @@ const FieldsTab = forwardRef<any, FieldsTabProps>(({
     }
   };
 
-  const handleFieldDrawn = (path: google.maps.LatLngLiteral[], area: { squareMeters: number; hectares: number }) => {
+  const handleFieldDrawn = (path: { lat: number; lng: number }[], area: { squareMeters: number; hectares: number }) => {
     setCalculatedArea(area);
     setDrawnFieldPath(path);
 
@@ -138,7 +139,7 @@ const FieldsTab = forwardRef<any, FieldsTabProps>(({
     onModeSelect('pan');
   };
 
-  const getCenterOfPolygon = (points: google.maps.LatLngLiteral[]): google.maps.LatLngLiteral => {
+  const getCenterOfPolygon = (points: { lat: number; lng: number }[]): { lat: number; lng: number } => {
     if (!points || points.length === 0) {
       return { lat: 0, lng: 0 };
     }

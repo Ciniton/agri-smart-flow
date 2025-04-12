@@ -8,7 +8,8 @@ import DeviceList from './DeviceList';
 import AddDeviceDialog from './AddDeviceDialog';
 import { DeviceMarker, Field } from './types';
 import { toast } from "@/hooks/use-toast";
-import { InfoCircle } from 'lucide-react';
+import { Info } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface DevicesTabProps {
   hasApiKey: boolean;
@@ -253,7 +254,7 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
             {deviceDetails && (
               <div className="mt-4 p-4 border rounded-md bg-muted/50">
                 <h3 className="font-medium text-lg mb-2 flex items-center">
-                  <InfoCircle className="mr-2 h-5 w-5 text-primary" />
+                  <Info className="mr-2 h-5 w-5 text-primary" />
                   Device Information
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
