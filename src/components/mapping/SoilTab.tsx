@@ -1,27 +1,15 @@
 
-import React, { useRef, useImperativeHandle, forwardRef, useState } from 'react';
+import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import InteractiveMap from '@/components/mapping/InteractiveMap';
 import MapPlaceholder from './MapPlaceholder';
 import MapToolbar from './MapToolbar';
-import SoilLegend from './SoilLegend';
-import { toast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { Palette } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-
-interface SoilZone {
-  id: string;
-  name: string;
-  boundaries: { lat: number; lng: number }[];
-  soilType: 'sandy' | 'clay' | 'loam' | 'rocky' | 'silty';
-  color: string;
-  area?: { squareMeters: number; hectares: number };
-  center?: { lat: number; lng: number };
-}
+import { toast } from "@/hooks/use-toast";
+import { Field, SoilZone, GoogleLatLngLiteral } from './types';
+import SoilZoneList from './SoilZoneList';
+import AddSoilZoneDialog from './AddSoilZoneDialog';
+import { useSoilLayers } from './hooks/useSoilLayers';
 
 interface SoilTabProps {
   hasApiKey: boolean;
@@ -30,6 +18,7 @@ interface SoilTabProps {
   onModeSelect: (mode: 'pan' | 'draw' | 'measure') => void;
   onGetUserLocation: () => void;
   onSaveMap: () => void;
+  fields: Field[];
 }
 
 const SoilTab = forwardRef<any, SoilTabProps>(({
@@ -39,20 +28,42 @@ const SoilTab = forwardRef<any, SoilTabProps>(({
   onModeSelect,
   onGetUserLocation,
   onSaveMap,
+  fields
 }, ref) => {
   const mapRef = useRef<any>(null);
   const [soilZones, setSoilZones] = useState<SoilZone[]>(() => {
     const savedZones = localStorage.getItem('soilZones');
     return savedZones ? JSON.parse(savedZones) : [];
   });
-  const [showAddZoneDialog, setShowAddZoneDialog] = useState(false);
-  const [drawnZonePath, setDrawnZonePath] = useState<{ lat: number; lng: number }[] | null>(null);
-  const [calculatedArea, setCalculatedArea] = useState<{ squareMeters: number; hectares: number } | null>(null);
-  const [newZone, setNewZone] = useState<{name: string, soilType: 'sandy' | 'clay' | 'loam' | 'rocky' | 'silty'}>({
+  const [activeSoilZoneId, setActiveSoilZoneId] = useState<string | null>(null);
+  const [showAddSoilZoneDialog, setShowAddSoilZoneDialog] = useState(false);
+  const [newSoilZone, setNewSoilZone] = useState<{
+    name: string;
+    fieldId: string;
+    soilType: string;
+    color?: string;
+  }>({
     name: '',
-    soilType: 'loam'
+    fieldId: '',
+    soilType: 'loamy',
+    color: '#FEF7CD' // Default color for loamy soil
   });
-  
+  const [calculatedArea, setCalculatedArea] = useState<{
+    squareMeters: number;
+    hectares: number;
+  } | null>(null);
+  const [drawnZonePath, setDrawnZonePath] = useState<GoogleLatLngLiteral[] | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingZone, setEditingZone] = useState<SoilZone | null>(null);
+
+  // Import custom soil layer hook
+  const { renderSoilZonesLayer, showSoilZone } = useSoilLayers();
+
+  // Save soil zones to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem('soilZones', JSON.stringify(soilZones));
+  }, [soilZones]);
+
   useImperativeHandle(ref, () => ({
     getUserLocation: () => {
       if (mapRef.current && mapRef.current.getUserLocation) {
@@ -66,7 +77,7 @@ const SoilTab = forwardRef<any, SoilTabProps>(({
       }
     }
   }));
-  
+
   const handleGetLocation = () => {
     if (mapRef.current && typeof mapRef.current.getUserLocation === 'function') {
       mapRef.current.getUserLocation();
@@ -79,10 +90,44 @@ const SoilTab = forwardRef<any, SoilTabProps>(({
     }
   };
 
-  const handleZoneDrawn = (path: { lat: number; lng: number }[], area: { squareMeters: number; hectares: number }) => {
-    setDrawnZonePath(path);
+  const handleSoilZoneDrawn = (path: GoogleLatLngLiteral[], area: {
+    squareMeters: number;
+    hectares: number;
+  }) => {
     setCalculatedArea(area);
-    setShowAddZoneDialog(true);
+    setDrawnZonePath(path);
+
+    if (isEditing && editingZone) {
+      // Update the existing zone
+      const updatedZones = soilZones.map(zone => {
+        if (zone.id === editingZone.id) {
+          return {
+            ...zone,
+            boundaries: path,
+            area: area,
+            center: getCenterOfPolygon(path),
+            lastModified: new Date().toISOString().split('T')[0]
+          };
+        }
+        return zone;
+      });
+      
+      setSoilZones(updatedZones);
+      setIsEditing(false);
+      setEditingZone(null);
+      setActiveSoilZoneId(null);
+      onModeSelect('pan');
+      
+      toast({
+        title: "Soil Zone Updated",
+        description: `Zone boundaries have been updated with area: ${area.hectares.toFixed(2)} hectares`,
+      });
+      
+      return;
+    }
+
+    // For new zones, show the dialog to name the zone
+    setShowAddSoilZoneDialog(true);
     
     toast({
       title: "Soil Zone Drawn",
@@ -90,75 +135,7 @@ const SoilTab = forwardRef<any, SoilTabProps>(({
     });
   };
 
-  const getSoilTypeColor = (soilType: string): string => {
-    switch (soilType) {
-      case 'sandy':
-        return '#fcd34d'; // amber-300
-      case 'clay':
-        return '#92400e'; // amber-800
-      case 'loam':
-        return '#15803d'; // green-700
-      case 'rocky':
-        return '#6b7280'; // gray-500
-      case 'silty':
-        return '#93c5fd'; // blue-300
-      default:
-        return '#15803d'; // green-700
-    }
-  };
-
-  const handleAddSoilZone = () => {
-    if (!newZone.name) {
-      toast({
-        title: "Name Required",
-        description: "Please enter a name for this soil zone.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!drawnZonePath) {
-      toast({
-        title: "No Zone Drawn",
-        description: "Please draw a zone on the map first.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Calculate center point for the zone
-    const centerPoint = getCenterOfPolygon(drawnZonePath);
-    
-    const soilZone: SoilZone = {
-      id: `soil-${Date.now()}`,
-      name: newZone.name,
-      boundaries: drawnZonePath,
-      soilType: newZone.soilType,
-      color: getSoilTypeColor(newZone.soilType),
-      area: calculatedArea || undefined,
-      center: centerPoint
-    };
-
-    const updatedZones = [...soilZones, soilZone];
-    setSoilZones(updatedZones);
-    localStorage.setItem('soilZones', JSON.stringify(updatedZones));
-    
-    // Reset state
-    setNewZone({ name: '', soilType: 'loam' });
-    setDrawnZonePath(null);
-    setCalculatedArea(null);
-    setShowAddZoneDialog(false);
-    
-    toast({
-      title: "Soil Zone Added",
-      description: `${newZone.soilType.charAt(0).toUpperCase() + newZone.soilType.slice(1)} soil zone "${newZone.name}" has been added to the map.`,
-    });
-    
-    // Reset to pan mode
-    onModeSelect('pan');
-  };
-
-  const getCenterOfPolygon = (points: { lat: number; lng: number }[]): { lat: number; lng: number } => {
+  const getCenterOfPolygon = (points: GoogleLatLngLiteral[]): GoogleLatLngLiteral => {
     if (!points || points.length === 0) {
       return { lat: 0, lng: 0 };
     }
@@ -172,15 +149,168 @@ const SoilTab = forwardRef<any, SoilTabProps>(({
     };
   };
 
+  const handleAddSoilZone = () => {
+    if (!newSoilZone.name || !newSoilZone.fieldId || !newSoilZone.soilType) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!drawnZonePath && !calculatedArea) {
+      // If no zone was drawn but user wants to add a zone, switch to draw mode
+      onModeSelect('draw');
+      setShowAddSoilZoneDialog(false);
+      
+      toast({
+        title: "Draw Soil Zone",
+        description: "Please draw the soil zone boundaries on the map.",
+      });
+      return;
+    }
+
+    // Create a new soil zone with the drawn path and calculated area
+    const centerPoint = drawnZonePath 
+      ? getCenterOfPolygon(drawnZonePath)
+      : undefined;
+
+    const newZone: SoilZone = {
+      id: `sz-${Date.now()}`,
+      name: newSoilZone.name,
+      fieldId: newSoilZone.fieldId,
+      soilType: newSoilZone.soilType,
+      color: newSoilZone.color,
+      boundaries: drawnZonePath || undefined,
+      center: centerPoint,
+      area: calculatedArea || undefined,
+      lastModified: new Date().toISOString().split('T')[0]
+    };
+
+    setSoilZones(prev => [...prev, newZone]);
+    
+    // Reset states
+    setCalculatedArea(null);
+    setDrawnZonePath(null);
+    setNewSoilZone({
+      name: '',
+      fieldId: '',
+      soilType: 'loamy',
+      color: '#FEF7CD'
+    });
+    setShowAddSoilZoneDialog(false);
+    
+    toast({
+      title: "Soil Zone Saved",
+      description: `Soil zone "${newZone.name}" has been saved.`,
+    });
+
+    // Reset the drawing mode
+    onModeSelect('pan');
+  };
+
+  const handleAddSoilZoneClick = () => {
+    // First check if there are any fields
+    if (fields.length === 0) {
+      toast({
+        title: "No Fields Available",
+        description: "Please create at least one field before adding soil zones.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Reset form fields
+    setNewSoilZone({
+      name: '',
+      fieldId: fields[0].id, // Default to first field
+      soilType: 'loamy',
+      color: '#FEF7CD'
+    });
+    
+    setCalculatedArea(null);
+    setDrawnZonePath(null);
+    setIsEditing(false);
+    setEditingZone(null);
+    
+    setShowAddSoilZoneDialog(true);
+  };
+
+  const handleEditSoilZone = (zone: SoilZone) => {
+    setActiveSoilZoneId(zone.id);
+    setIsEditing(true);
+    setEditingZone(zone);
+    
+    // Populate the form with existing data
+    setNewSoilZone({
+      name: zone.name,
+      fieldId: zone.fieldId,
+      soilType: zone.soilType,
+      color: zone.color
+    });
+    
+    if (zone.boundaries) {
+      setDrawnZonePath(zone.boundaries);
+    }
+    
+    if (zone.area) {
+      setCalculatedArea(zone.area);
+    }
+    
+    // Switch to draw mode to edit boundaries
+    onModeSelect('draw');
+    
+    toast({
+      title: "Edit Soil Zone",
+      description: "Edit the soil zone boundaries on the map.",
+    });
+  };
+
+  const handleDeleteSoilZone = (zoneId: string) => {
+    setSoilZones(prev => prev.filter(zone => zone.id !== zoneId));
+    
+    if (activeSoilZoneId === zoneId) {
+      setActiveSoilZoneId(null);
+    }
+    
+    toast({
+      title: "Soil Zone Deleted",
+      description: "The soil zone has been removed.",
+    });
+  };
+
+  const handleViewSoilZone = (zone: SoilZone) => {
+    setActiveSoilZoneId(zone.id);
+    
+    // Center the map on the zone if boundaries are available
+    if (zone.boundaries && mapRef.current) {
+      showSoilZone(window.google, mapRef.current, zone);
+    }
+  };
+
+  useEffect(() => {
+    if (activeMode === 'draw' && !showAddSoilZoneDialog) {
+      toast({
+        title: isEditing ? "Edit Soil Zone" : "Draw Soil Zone",
+        description: "Click on the map to place points and draw the soil zone boundaries.",
+      });
+    }
+  }, [activeMode, showAddSoilZoneDialog, isEditing]);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
       <div className="lg:col-span-3">
         <Card>
           <CardHeader>
-            <CardTitle>Soil Type Mapping</CardTitle>
-            {calculatedArea && (
+            <CardTitle>Soil Mapping</CardTitle>
+            {isEditing && editingZone ? (
               <CardDescription>
-                Drawn Area: {calculatedArea.squareMeters.toLocaleString()} m² ({calculatedArea.hectares.toFixed(2)} ha)
+                Editing: {editingZone.name}
+              </CardDescription>
+            ) : (
+              <CardDescription>
+                Map different soil types across your fields for precision agriculture
               </CardDescription>
             )}
           </CardHeader>
@@ -189,8 +319,9 @@ const SoilTab = forwardRef<any, SoilTabProps>(({
               <InteractiveMap 
                 ref={mapRef}
                 onLocationChange={onLocationChange} 
-                mode={activeMode} 
-                onFieldDrawn={handleZoneDrawn}
+                mode={activeMode}
+                fields={fields}
+                onFieldDrawn={handleSoilZoneDrawn}
               />
             ) : (
               <MapPlaceholder />
@@ -201,101 +332,31 @@ const SoilTab = forwardRef<any, SoilTabProps>(({
               onModeSelect={onModeSelect}
               onGetUserLocation={handleGetLocation}
               onSave={onSaveMap}
-              showImportExport={false}
-              drawButtonText="Draw Soil Zone"
             />
-
-            <div className="mt-4 border rounded-md p-3">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="font-medium">Soil Zones</h3>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => onModeSelect('draw')}
-                  className="flex items-center h-8"
-                >
-                  <Palette className="h-4 w-4 mr-1" /> Add Soil Zone
-                </Button>
-              </div>
-              
-              {soilZones.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No soil zones defined yet. Use the draw tool to create zones.</p>
-              ) : (
-                <div className="grid gap-2 max-h-[200px] overflow-y-auto">
-                  {soilZones.map(zone => (
-                    <div key={zone.id} className="flex items-center justify-between p-2 border rounded">
-                      <div className="flex items-center">
-                        <div 
-                          className="w-4 h-4 rounded mr-2" 
-                          style={{ backgroundColor: zone.color }}
-                        ></div>
-                        <span className="text-sm font-medium">{zone.name}</span>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {zone.soilType.charAt(0).toUpperCase() + zone.soilType.slice(1)} soil
-                        {zone.area && ` · ${zone.area.hectares.toFixed(2)} ha`}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           </CardContent>
         </Card>
       </div>
       
-      <SoilLegend />
+      <SoilZoneList
+        soilZones={soilZones}
+        fields={fields}
+        activeSoilZoneId={activeSoilZoneId}
+        setActiveSoilZoneId={setActiveSoilZoneId}
+        onAddSoilZone={handleAddSoilZoneClick}
+        onEditSoilZone={handleEditSoilZone}
+        onDeleteSoilZone={handleDeleteSoilZone}
+        onViewSoilZone={handleViewSoilZone}
+      />
 
-      <Dialog open={showAddZoneDialog} onOpenChange={setShowAddZoneDialog}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Add Soil Zone</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="zoneName">Zone Name</Label>
-              <Input
-                id="zoneName"
-                value={newZone.name}
-                onChange={(e) => setNewZone({...newZone, name: e.target.value})}
-                placeholder="Enter zone name"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="soilType">Soil Type</Label>
-              <Select 
-                value={newZone.soilType} 
-                onValueChange={(value: 'sandy' | 'clay' | 'loam' | 'rocky' | 'silty') => setNewZone({...newZone, soilType: value})}
-              >
-                <SelectTrigger id="soilType">
-                  <SelectValue placeholder="Select soil type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sandy">Sandy Soil</SelectItem>
-                  <SelectItem value="clay">Clay Soil</SelectItem>
-                  <SelectItem value="loam">Loam Soil</SelectItem>
-                  <SelectItem value="rocky">Rocky Soil</SelectItem>
-                  <SelectItem value="silty">Silty Soil</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {calculatedArea && (
-              <div className="text-sm">
-                <p>Area: {calculatedArea.hectares.toFixed(2)} hectares</p>
-                <p>({calculatedArea.squareMeters.toLocaleString()} m²)</p>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button 
-              onClick={handleAddSoilZone} 
-              disabled={!newZone.name || !drawnZonePath}
-            >
-              Add Soil Zone
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AddSoilZoneDialog
+        open={showAddSoilZoneDialog}
+        onOpenChange={setShowAddSoilZoneDialog}
+        fields={fields}
+        soilZone={newSoilZone}
+        onSoilZoneChange={setNewSoilZone}
+        onAddSoilZone={handleAddSoilZone}
+        calculatedArea={calculatedArea || undefined}
+      />
     </div>
   );
 });

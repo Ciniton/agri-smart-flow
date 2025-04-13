@@ -8,6 +8,7 @@ import { getUserLocation, createUserLocationMarker } from './utils/locationUtils
 import { useMapLayers } from './hooks/useMapLayers';
 import { useDeviceMarkers } from './hooks/useDeviceMarkers';
 import { useDrawingTools } from './hooks/useDrawingTools';
+import { useSoilLayers } from './hooks/useSoilLayers';
 
 // Declare google maps types to prevent TS errors
 declare global {
@@ -83,6 +84,11 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
     setMapMode
   } = useDrawingTools();
 
+  const {
+    soilZonesLayerRef,
+    renderSoilZonesLayer
+  } = useSoilLayers();
+  
   const initMapScript = () => {
     const apiKey = localStorage.getItem('googleMapsApiKey');
     
@@ -279,6 +285,13 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
   useEffect(() => {
     if (map && mapInitializedRef.current && window.google) {
       renderZonesLayer(window.google, map, zones, activeZoneId, isAddingDevice);
+      
+      // Also render soil zones if available
+      const storedSoilZones = localStorage.getItem('soilZones');
+      if (storedSoilZones) {
+        const soilZones = JSON.parse(storedSoilZones);
+        renderSoilZonesLayer(window.google, map, soilZones, null, isAddingDevice);
+      }
     }
   }, [zones, activeZoneId, isAddingDevice]);
 

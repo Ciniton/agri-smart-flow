@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from "@/hooks/use-toast";
-import { Field, Zone, DeviceMarker, GoogleLatLngLiteral } from '@/components/mapping/types';
+import { Field, Zone, DeviceMarker, GoogleLatLngLiteral, SoilZone } from '@/components/mapping/types';
 import FieldsTab from '@/components/mapping/FieldsTab';
 import ZonesTab from '@/components/mapping/ZonesTab';
 import DevicesTab from '@/components/mapping/DevicesTab';
@@ -87,6 +86,11 @@ const Mapping: React.FC = () => {
     ];
   });
   
+  const [soilZones, setSoilZones] = useState<SoilZone[]>(() => {
+    const savedSoilZones = localStorage.getItem('soilZones');
+    return savedSoilZones ? JSON.parse(savedSoilZones) : [];
+  });
+  
   // Save fields, zones, and devices to localStorage when they change
   useEffect(() => {
     localStorage.setItem('fields', JSON.stringify(fields));
@@ -99,6 +103,10 @@ const Mapping: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('devices', JSON.stringify(devices));
   }, [devices]);
+  
+  useEffect(() => {
+    localStorage.setItem('soilZones', JSON.stringify(soilZones));
+  }, [soilZones]);
   
   useEffect(() => {
     // Check if API key exists in localStorage
@@ -470,6 +478,7 @@ const Mapping: React.FC = () => {
             onModeSelect={handleModeSelect}
             onGetUserLocation={handleGetUserLocation}
             onSaveMap={handleSaveMap}
+            fields={fields}
             ref={(ref) => mapRefs.current.soil = ref}
           />
         </TabsContent>
