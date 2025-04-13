@@ -722,6 +722,31 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
     }
   };
 
+  // Show zone on the map (highlight it)
+  const showZone = (zone: Zone) => {
+    if (!map || !zone.boundaries) return;
+
+    // First create new bounds
+    const bounds = new window.google.maps.LatLngBounds();
+    zone.boundaries.forEach(coord => {
+      bounds.extend(coord);
+    });
+    
+    // Fit to these bounds
+    map.fitBounds(bounds);
+    
+    // Highlight this zone on the map
+    const zonePolygon = zonesLayerRef.current.get(zone.id);
+    if (zonePolygon) {
+      zonePolygon.setOptions({
+        strokeColor: '#22C55E',
+        strokeWeight: 3,
+        fillColor: '#22C55E',
+        fillOpacity: 0.35
+      });
+    }
+  };
+
   const handleZoomIn = () => {
     if (map) {
       const currentZoom = map.getZoom() || 5;
@@ -839,4 +864,174 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
 
   // Update device markers when devices prop changes
   useEffect(() => {
-    if (map && mapInitializedRef.current
+    if (map && mapInitializedRef.current) {
+      renderDeviceMarkers(map);
+    }
+  }, [devices]);
+
+  // Update fields layer when fields prop changes
+  useEffect(() => {
+    if (map && mapInitializedRef.current) {
+      renderFieldsLayer(map);
+    }
+  }, [fields, activeFieldId]);
+
+  // Update zones layer when zones prop changes
+  useEffect(() => {
+    if (map && mapInitializedRef.current) {
+      renderZonesLayer(map);
+    }
+  }, [zones, activeZoneId]);
+
+  // Expose methods to parent component via ref
+  useImperativeHandle(ref, () => ({
+    getUserLocation,
+    centerOnLocation,
+    showField,
+    showZone,
+    handleZoomIn,
+    handleZoomOut,
+    toggleFieldsLayer,
+    toggleZonesLayer
+  }));
+
+  return (
+    <div className="relative w-full">
+      {isLoading ? (
+        <div className="h-[500px] flex flex-col items-center justify-center bg-muted rounded-md">
+          {error ? (
+            <div className="text-center text-destructive p-6">
+              <p className="font-semibold mb-2">{error}</p>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setError(null);
+                  setIsLoading(true);
+                  loadGoogleMapsScript();
+                }}
+              >
+                Retry Loading Map
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="h-2 w-64 bg-muted-foreground/20 rounded-full overflow-hidden mb-4">
+                <div 
+                  className="h-full bg-primary transition-all duration-300 rounded-full" 
+                  style={{ width: `${loadingProgress}%` }}
+                />
+              </div>
+              <p className="text-muted-foreground">Loading Google Maps... {loadingProgress}%</p>
+            </>
+          )}
+        </div>
+      ) : (
+        <>
+          <div 
+            ref={mapRef} 
+            className="w-full h-[500px] rounded-md overflow-hidden"
+          />
+          <div className="absolute bottom-4 right-4 flex flex-col gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="secondary" size="icon" onClick={handleZoomIn}>
+                    <ZoomIn className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Zoom In</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="secondary" size="icon" onClick={handleZoomOut}>
+                    <ZoomOut className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Zoom Out</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="secondary" 
+                    size="icon" 
+                    onClick={getUserLocation}
+                  >
+                    <Navigation className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>My Location</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant={activeTool === 'draw' ? "primary" : "secondary"} 
+                    size="icon" 
+                    onClick={() => setMapMode('draw')}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Draw Mode</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant={activeTool === 'measure' ? "primary" : "secondary"} 
+                    size="icon" 
+                    onClick={() => setMapMode('measure')}
+                  >
+                    <Ruler className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Measure Distance</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="secondary" 
+                    size="icon" 
+                    onClick={toggleFieldsLayer}
+                  >
+                    <Layers className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Toggle Field Boundaries</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </>
+      )}
+    </div>
+  );
+});
+
+InteractiveMap.displayName = 'InteractiveMap';
+
+export default InteractiveMap;
