@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import InteractiveMap from '@/components/mapping/InteractiveMap';
@@ -14,6 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MapPin } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface DevicesTabProps {
   hasApiKey: boolean;
@@ -22,14 +25,14 @@ interface DevicesTabProps {
   fields: Field[];
   zones: Zone[];
   location: { lat: number, lng: number } | null;
-  newDevice: { name: string; type: 'sensor' | 'valve' | 'weather-station' };
+  newDevice: { name: string; type: 'sensor' | 'valve' | 'weather-station'; fieldId?: string; zoneId?: string };
   showAddDeviceDialog: boolean;
   onLocationChange: (lat: number, lng: number) => void;
   onModeSelect: (mode: 'pan' | 'draw' | 'measure') => void;
   onGetUserLocation: () => void;
   onSaveMap: () => void;
   setShowAddDeviceDialog: (show: boolean) => void;
-  setNewDevice: (device: { name: string; type: 'sensor' | 'valve' | 'weather-station' }) => void;
+  setNewDevice: (device: { name: string; type: 'sensor' | 'valve' | 'weather-station'; fieldId?: string; zoneId?: string }) => void;
   handleEditDevice: (deviceId: string) => void;
   handleAddDevice: () => void;
   setDevices: React.Dispatch<React.SetStateAction<DeviceMarker[]>>;
@@ -60,6 +63,7 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
   const [selectedField, setSelectedField] = useState<Field | null>(null);
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
   const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null);
+  const [isAddingDevice, setIsAddingDevice] = useState<boolean>(false);
   const mapRef = useRef<any>(null);
 
   // Create a list of zones filtered by the selected field
@@ -107,6 +111,13 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
     }
   }, [selectedFieldId]);
 
+  // Auto-open device dialog when location changes and isAddingDevice is true
+  useEffect(() => {
+    if (isAddingDevice && location) {
+      handleAddDeviceClick();
+    }
+  }, [location, isAddingDevice]);
+
   const handleFieldSelect = (fieldId: string) => {
     setSelectedFieldId(fieldId || "field_unassigned");
 
@@ -142,21 +153,34 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
     setNewDevice({ ...newDevice, type });
   };
 
-  const handleAddDeviceClick = () => {
-    if (!location) {
-      toast({
-        title: "No Location Selected",
-        description: "Please click on the map to select a location for the device.",
-        variant: "destructive"
-      });
-      return;
-    }
+  const toggleAddDeviceMode = () => {
+    setIsAddingDevice(!isAddingDevice);
     
-    // Reset the dialog state
-    setNewDevice({ name: '', type: 'sensor' });
-    setSelectedFieldId("field_unassigned");
-    setSelectedZoneId("zone_unassigned");
+    if (!isAddingDevice) {
+      toast({
+        title: "Add Device Mode Activated",
+        description: "Click anywhere on the map to place a new device",
+      });
+    } else {
+      toast({
+        description: "Add Device Mode Deactivated",
+      });
+    }
+  };
+
+  const handleAddDeviceClick = () => {
+    // Set the field and zone IDs based on the current selections
+    setNewDevice({
+      ...newDevice,
+      fieldId: selectedFieldId !== "field_unassigned" ? selectedFieldId : undefined,
+      zoneId: selectedZoneId !== "zone_unassigned" ? selectedZoneId : undefined
+    });
+    
+    // Show the dialog
     setShowAddDeviceDialog(true);
+    
+    // Exit the adding device mode
+    setIsAddingDevice(false);
   };
 
   const handleViewDevice = (device: DeviceMarker) => {
@@ -205,7 +229,12 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
     setDevices([...devices, deviceData]);
     
     // Reset form and close dialog
-    setNewDevice({ name: '', type: 'sensor' });
+    setNewDevice({ 
+      name: '', 
+      type: 'sensor',
+      fieldId: selectedFieldId,
+      zoneId: selectedZoneId
+    });
     setShowAddDeviceDialog(false);
     
     toast({
@@ -239,8 +268,19 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
       <div className="lg:col-span-3">
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Device Placement</CardTitle>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant={isAddingDevice ? "default" : "outline"}
+                size="sm"
+                onClick={toggleAddDeviceMode}
+                className="flex items-center"
+              >
+                <MapPin className="mr-1 h-4 w-4" />
+                {isAddingDevice ? "Cancel" : "Place on Map"}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -293,6 +333,7 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
                 editingDeviceId={editingDeviceId}
                 activeFieldId={selectedFieldId !== "field_unassigned" ? selectedFieldId : null}
                 activeZoneId={selectedZoneId !== "zone_unassigned" ? selectedZoneId : null}
+                isAddingDevice={isAddingDevice}
               />
             ) : (
               <MapPlaceholder>

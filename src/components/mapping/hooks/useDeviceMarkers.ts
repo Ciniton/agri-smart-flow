@@ -14,7 +14,8 @@ export const useDeviceMarkers = () => {
     fields: Field[],
     zones: Zone[],
     editingDeviceId: string | null = null,
-    onLocationChange?: (lat: number, lng: number) => void
+    onLocationChange?: (lat: number, lng: number) => void,
+    isAddingDevice?: boolean
   ) => {
     // Clear existing device markers
     deviceMarkersRef.current.forEach((marker) => {
@@ -84,6 +85,52 @@ export const useDeviceMarkers = () => {
 
       deviceMarkersRef.current.set(device.id, marker);
     });
+
+    // Set up map click listener if adding device mode is active
+    if (isAddingDevice && mapInstance) {
+      // Listen for map clicks to place device
+      google.maps.event.addListener(mapInstance, 'click', (event: any) => {
+        if (onLocationChange) {
+          const clickedPosition = {
+            lat: event.latLng.lat(),
+            lng: event.latLng.lng()
+          };
+          
+          onLocationChange(clickedPosition.lat, clickedPosition.lng);
+          
+          // Create a temporary marker to indicate where the device will be placed
+          const tempMarker = new google.maps.Marker({
+            position: clickedPosition,
+            map: mapInstance,
+            animation: google.maps.Animation.DROP,
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              fillColor: '#4285F4',
+              fillOpacity: 0.8,
+              strokeWeight: 2,
+              strokeColor: '#FFFFFF',
+              scale: 10
+            }
+          });
+          
+          // Auto-open the add device dialog (this is handled in DevicesTab)
+          toast({
+            title: "Location Selected",
+            description: "Adding new device at selected location",
+          });
+          
+          // Store the temp marker so we can remove it when the operation is complete
+          deviceMarkersRef.current.set('temp-marker', tempMarker);
+        }
+      });
+      
+      // Change cursor to indicate map is clickable
+      mapInstance.setOptions({ draggableCursor: 'crosshair' });
+    } else if (mapInstance) {
+      // Remove map click listener and restore default cursor
+      google.maps.event.clearListeners(mapInstance, 'click');
+      mapInstance.setOptions({ draggableCursor: null });
+    }
   }, []);
 
   return {

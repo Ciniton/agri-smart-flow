@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { toast } from "@/hooks/use-toast";
 import { DeviceMarker, Field, Zone, GoogleLatLngLiteral } from './types';
@@ -29,6 +28,7 @@ interface InteractiveMapProps {
   onZoneDrawn?: (path: GoogleLatLngLiteral[], area: { squareMeters: number; hectares: number }) => void;
   activeFieldId?: string | null;
   activeZoneId?: string | null;
+  isAddingDevice?: boolean;
 }
 
 const InteractiveMap = forwardRef<any, InteractiveMapProps>(({ 
@@ -41,7 +41,8 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
   onFieldDrawn,
   onZoneDrawn,
   activeFieldId = null,
-  activeZoneId = null
+  activeZoneId = null,
+  isAddingDevice = false
 }, ref) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<any | null>(null);
@@ -120,7 +121,7 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
         // Render fields, zones and devices after map is fully loaded
         renderFieldsLayer(window.google, mapInstance, fields, activeFieldId);
         renderZonesLayer(window.google, mapInstance, zones, activeZoneId);
-        renderDeviceMarkers(window.google, mapInstance, devices, fields, zones, editingDeviceId, onLocationChange);
+        renderDeviceMarkers(window.google, mapInstance, devices, fields, zones, editingDeviceId, onLocationChange, isAddingDevice);
       });
 
       setMap(mapInstance);
@@ -244,12 +245,21 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
     }
   }, [mode]);
 
-  // Update device markers when devices prop changes
+  // Update device markers when devices prop changes or isAddingDevice changes
   useEffect(() => {
     if (map && mapInitializedRef.current && window.google) {
-      renderDeviceMarkers(window.google, map, devices, fields, zones, editingDeviceId, onLocationChange);
+      renderDeviceMarkers(
+        window.google, 
+        map, 
+        devices, 
+        fields, 
+        zones, 
+        editingDeviceId, 
+        onLocationChange,
+        isAddingDevice
+      );
     }
-  }, [devices, editingDeviceId]);
+  }, [devices, editingDeviceId, isAddingDevice]);
 
   // Update fields layer when fields prop changes
   useEffect(() => {
@@ -286,6 +296,12 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
         ref={mapRef} 
         className="w-full h-[calc(100vh-20rem)] min-h-[400px] rounded-md overflow-hidden"
       />
+      
+      {isAddingDevice && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-background/90 z-10 p-2 rounded-md border border-primary">
+          <p className="text-sm text-center font-medium">Click anywhere on the map to place a device</p>
+        </div>
+      )}
       
       <ZoomControls onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} />
       <DrawingControls activeTool={activeTool} onSelectMode={handleSelectMode} />
