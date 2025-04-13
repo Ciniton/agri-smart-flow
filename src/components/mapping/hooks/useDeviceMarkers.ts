@@ -16,7 +16,7 @@ export const useDeviceMarkers = () => {
     editingDeviceId: string | null = null,
     onLocationChange?: (lat: number, lng: number, fromMapClick?: boolean) => void,
     isAddingDevice?: boolean,
-    onDeviceSelect?: (deviceId: string) => void,
+    onDeviceSelect?: (deviceId: string, editMode: 'details' | 'location') => void,
     isEditingLocation?: boolean
   ) => {
     // Clear existing device markers
@@ -53,7 +53,7 @@ export const useDeviceMarkers = () => {
             // Immediately show a success toast to indicate the device was moved
             toast({
               title: "Device Moved",
-              description: `Device "${device.name}" moved to new location. Remember to save your changes.`,
+              description: `Position updated. Click Save to confirm changes.`,
             });
           }
         });
@@ -70,26 +70,55 @@ export const useDeviceMarkers = () => {
           onLocationChange(device.position.lat, device.position.lng);
         }
         
-        // Call the device select callback if provided
+        // Show edit options when a marker is clicked
         if (onDeviceSelect) {
-          onDeviceSelect(device.id);
+          // Open a small infowindow with edit options
+          const editContent = `
+            <div style="padding: 8px; text-align: center;">
+              <strong>${device.name}</strong>
+              <div style="display: flex; gap: 8px; margin-top: 8px;">
+                <button id="edit-details-btn" style="flex: 1; padding: 4px; background: #f1f5f9; border-radius: 4px; border: 1px solid #cbd5e1; cursor: pointer; font-size: 12px;">
+                  Edit Details
+                </button>
+                <button id="edit-location-btn" style="flex: 1; padding: 4px; background: #f1f5f9; border-radius: 4px; border: 1px solid #cbd5e1; cursor: pointer; font-size: 12px;">
+                  Move on Map
+                </button>
+              </div>
+            </div>
+          `;
+          
+          const editInfoWindow = new google.maps.InfoWindow({
+            content: editContent
+          });
+          
+          editInfoWindow.open(mapInstance, marker);
+          
+          // We need to wait for the DOM to be updated with our content
+          google.maps.event.addListener(editInfoWindow, 'domready', () => {
+            // Add click listeners to the buttons
+            const detailsBtn = document.getElementById('edit-details-btn');
+            const locationBtn = document.getElementById('edit-location-btn');
+            
+            if (detailsBtn) {
+              detailsBtn.addEventListener('click', () => {
+                onDeviceSelect(device.id, 'details');
+                editInfoWindow.close();
+              });
+            }
+            
+            if (locationBtn) {
+              locationBtn.addEventListener('click', () => {
+                onDeviceSelect(device.id, 'location');
+                editInfoWindow.close();
+              });
+            }
+          });
         } else if (device.id !== editingDeviceId) {
           toast({
             title: "Device Selected",
             description: `Selected ${device.name}`,
           });
         }
-      });
-
-      // Add info window with enhanced device details including zone information
-      const infoWindowContent = createDeviceInfoWindowContent(device, fields, zones);
-      
-      const infoWindow = new google.maps.InfoWindow({
-        content: infoWindowContent
-      });
-      
-      google.maps.event.addListener(marker, 'click', () => {
-        infoWindow.open(mapInstance, marker);
       });
 
       deviceMarkersRef.current.set(device.id, marker);

@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MapPin, Map, Move } from 'lucide-react';
+import { MapPin, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
@@ -63,11 +63,11 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
   const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
   const [selectedField, setSelectedField] = useState<Field | null>(null);
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
-  const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null);
   const [isAddingDevice, setIsAddingDevice] = useState<boolean>(false);
   const [showEditDeviceDialog, setShowEditDeviceDialog] = useState<boolean>(false);
   const [editingDevice, setEditingDevice] = useState<DeviceMarker | null>(null);
   const [isEditingLocation, setIsEditingLocation] = useState<boolean>(false);
+  const [editMode, setEditMode] = useState<'details' | 'location'>('details');
   const mapRef = useRef<any>(null);
 
   // Create a list of zones filtered by the selected field
@@ -142,8 +142,6 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
         } else {
           setSelectedZoneId("zone_unassigned");
         }
-        
-        setShowEditDeviceDialog(true);
       }
     }
   }, [editingDeviceId, devices]);
@@ -223,12 +221,38 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
     }
   };
 
-  const handleViewDevice = (device: DeviceMarker) => {
-    setActiveDeviceId(device.id);
+  const handleDeviceSelect = (deviceId: string, mode: 'details' | 'location') => {
+    setEditingDeviceId(deviceId);
+    setEditMode(mode);
     
-    // Center the map on the device
-    if (device.position && mapRef.current) {
-      mapRef.current.centerOnLocation(device.position);
+    // Get the device details
+    const device = devices.find(d => d.id === deviceId);
+    if (!device) return;
+    
+    // Set the editing location flag based on the mode
+    setIsEditingLocation(mode === 'location');
+    
+    // Center the map on the device if we're editing its location
+    if (mode === 'location') {
+      if (device.position && mapRef.current) {
+        mapRef.current.centerOnLocation(device.position);
+        
+        // Set the current location to the device position
+        onLocationChange(device.position.lat, device.position.lng);
+        
+        toast({
+          title: "Edit Device Location",
+          description: "Drag the device marker to a new location, then save your changes",
+        });
+      }
+    } else {
+      // Open edit dialog for details
+      setShowEditDeviceDialog(true);
+      
+      toast({
+        title: "Edit Device Details",
+        description: "You can now edit the device details",
+      });
     }
   };
 
@@ -283,39 +307,6 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
     });
   };
 
-  const handleDeviceSelectForEdit = (deviceId: string) => {
-    // Set the current device as being edited
-    setEditingDeviceId(deviceId);
-    setIsEditingLocation(false); // Start with details editing, not location
-    
-    // Get the device position
-    const device = devices.find(d => d.id === deviceId);
-    if (device) {
-      onLocationChange(device.position.lat, device.position.lng);
-    }
-    
-    toast({
-      title: "Edit Device",
-      description: "You can now edit device details",
-    });
-  };
-
-  const toggleLocationEditing = () => {
-    setIsEditingLocation(!isEditingLocation);
-    
-    if (!isEditingLocation) {
-      toast({
-        title: "Location Edit Mode",
-        description: "You can now drag the device to a new location on the map",
-      });
-    } else {
-      toast({
-        title: "Details Edit Mode",
-        description: "Now editing device details",
-      });
-    }
-  };
-
   const handleEditDeviceDialogClose = () => {
     setShowEditDeviceDialog(false);
     setEditingDeviceId(null);
@@ -336,14 +327,14 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
       return;
     }
     
-    // Update the device in the devices list - use the most recent location
+    // Update the device in the devices list
     const updatedDevices = devices.map(device => {
       if (device.id === editingDevice.id) {
         return {
           ...editingDevice,
           fieldId: selectedFieldId !== "field_unassigned" ? selectedFieldId : undefined,
           zoneId: selectedZoneId !== "zone_unassigned" ? selectedZoneId : undefined,
-          position: location || device.position // Use the latest location if available
+          position: editMode === 'location' && location ? location : device.position
         };
       }
       return device;
@@ -357,11 +348,6 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
     setEditingDeviceId(null);
     setEditingDevice(null);
     setIsEditingLocation(false);
-    
-    // Clear any temporary location state
-    if (onLocationChange) {
-      onLocationChange(0, 0);
-    }
     
     toast({
       title: "Device Updated",
@@ -424,7 +410,7 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
                 disabled={!!editingDeviceId}
               >
                 <MapPin className="mr-1 h-4 w-4" />
-                {isAddingDevice ? "Cancel" : "Place on Map"}
+                {isAddingDevice ? "Cancel" : "Place Device"}
               </Button>
             </div>
           </CardHeader>
@@ -481,7 +467,7 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
                 activeZoneId={selectedZoneId !== "zone_unassigned" ? selectedZoneId : null}
                 isAddingDevice={isAddingDevice}
                 isEditingLocation={isEditingLocation}
-                onDeviceSelect={handleDeviceSelectForEdit}
+                onDeviceSelect={handleDeviceSelect}
               />
             ) : (
               <MapPlaceholder>
@@ -527,19 +513,8 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
               }}>
                 <DialogContent className="sm:max-w-md">
                   <DialogHeader>
-                    <DialogTitle className="flex items-center justify-between">
-                      <span>Edit Device</span>
-                      {editingDevice && (
-                        <Button 
-                          variant={isEditingLocation ? "default" : "outline"} 
-                          size="sm"
-                          onClick={toggleLocationEditing}
-                          className="flex items-center"
-                        >
-                          <Move className="mr-1 h-4 w-4" />
-                          {isEditingLocation ? "Editing Location" : "Edit Location"}
-                        </Button>
-                      )}
+                    <DialogTitle className="flex items-center">
+                      <span>Edit Device Details</span>
                     </DialogTitle>
                   </DialogHeader>
                   
@@ -578,6 +553,19 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
                             <SelectItem value="weather-station">Weather Station</SelectItem>
                           </SelectContent>
                         </Select>
+                      </div>
+                      
+                      {/* Serial Number (optional) */}
+                      <div className="space-y-2">
+                        <label htmlFor="edit-device-serial" className="text-sm font-medium">
+                          Serial Number (optional)
+                        </label>
+                        <input
+                          id="edit-device-serial"
+                          type="text"
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          placeholder="Enter serial number"
+                        />
                       </div>
                       
                       {/* Field assignment */}
@@ -629,18 +617,14 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
                         </Select>
                       </div>
                       
-                      {/* Location display */}
+                      {/* Location display (readonly in details mode) */}
                       <div className="space-y-2">
                         <label className="text-sm font-medium">
                           Location
                         </label>
                         <div className="flex items-center justify-between">
                           <div className="text-sm text-muted-foreground">
-                            {location ? (
-                              <>
-                                Lat: {location.lat.toFixed(6)}, Lng: {location.lng.toFixed(6)}
-                              </>
-                            ) : editingDevice.position ? (
+                            {editingDevice.position ? (
                               <>
                                 Lat: {editingDevice.position.lat.toFixed(6)}, Lng: {editingDevice.position.lng.toFixed(6)}
                               </>
@@ -648,11 +632,22 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
                               'No location selected'
                             )}
                           </div>
-                          {isEditingLocation && (
-                            <div className="text-xs text-green-600 font-medium">
-                              Drag on map to change
-                            </div>
-                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center"
+                            onClick={() => {
+                              setShowEditDeviceDialog(false);
+                              setIsEditingLocation(true);
+                              setEditMode('location');
+                              if (mapRef.current && editingDevice.position) {
+                                mapRef.current.centerOnLocation(editingDevice.position);
+                              }
+                            }}
+                          >
+                            <MapPin className="mr-1 h-4 w-4" />
+                            Edit Location
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -683,14 +678,34 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
       
       <DeviceList
         devices={filteredDevices}
-        handleViewDevice={handleViewDevice}
-        handleEditDevice={handleDeviceSelectForEdit}
+        handleEditDevice={handleDeviceSelect}
         handleRemoveDevice={handleRemoveDevice}
         setShowAddDeviceDialog={handleAddDeviceClick}
         fields={fields}
         zones={zones}
         editingDeviceId={editingDeviceId}
       />
+      
+      {/* Bottom action bar when editing device location */}
+      {editingDeviceId && isEditingLocation && (
+        <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 flex justify-between items-center z-50">
+          <div className="text-sm font-medium">
+            Editing device location: {editingDevice?.name}
+          </div>
+          <div className="flex space-x-2">
+            <Button variant="outline" onClick={() => {
+              setEditingDeviceId(null);
+              setEditingDevice(null);
+              setIsEditingLocation(false);
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateDevice}>
+              Save Location
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 });

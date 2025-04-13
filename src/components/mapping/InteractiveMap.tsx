@@ -30,7 +30,7 @@ interface InteractiveMapProps {
   activeZoneId?: string | null;
   isAddingDevice?: boolean;
   isEditingLocation?: boolean;
-  onDeviceSelect?: (deviceId: string) => void;
+  onDeviceSelect?: (deviceId: string, editMode: 'details' | 'location') => void;
 }
 
 const InteractiveMap = forwardRef<any, InteractiveMapProps>(({ 
@@ -313,7 +313,7 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
       
       {editingDeviceId && isEditingLocation && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-background/90 z-10 p-2 rounded-md border border-primary">
-          <p className="text-sm text-center font-medium">You can drag the device to a new location</p>
+          <p className="text-sm text-center font-medium">Drag the device to a new location, then click Save</p>
         </div>
       )}
       

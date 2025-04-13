@@ -2,15 +2,14 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Thermometer, Droplets, Sun, Edit, Eye, Trash2, Plus } from 'lucide-react';
+import { Thermometer, Droplets, Sun, Edit, MapPin, Trash2, Plus } from 'lucide-react';
 import { DeviceMarker, Field, Zone } from './types';
 
 interface DeviceListProps {
   devices: DeviceMarker[];
   fields: Field[];
   zones?: Zone[];
-  handleEditDevice: (deviceId: string) => void;
-  handleViewDevice: (device: DeviceMarker) => void;
+  handleEditDevice: (deviceId: string, editMode: 'details' | 'location') => void;
   handleRemoveDevice: (deviceId: string) => void;
   setShowAddDeviceDialog: () => void;
   editingDeviceId?: string | null;
@@ -21,7 +20,6 @@ const DeviceList: React.FC<DeviceListProps> = ({
   fields,
   zones = [],
   handleEditDevice,
-  handleViewDevice,
   handleRemoveDevice,
   setShowAddDeviceDialog,
   editingDeviceId = null
@@ -58,11 +56,11 @@ const DeviceList: React.FC<DeviceListProps> = ({
             {devices.map((device) => (
               <div 
                 key={device.id} 
-                className={`flex items-center justify-between p-2 rounded hover:bg-accent/40 transition-colors ${
+                className={`p-3 rounded hover:bg-accent/40 transition-colors ${
                   editingDeviceId === device.id ? 'bg-primary/10 border border-primary' : 'bg-card'
                 }`}
               >
-                <div className="flex items-center flex-grow pr-2" onClick={() => handleViewDevice(device)}>
+                <div className="flex items-center mb-2">
                   {getDeviceIcon(device.type)}
                   <div className="ml-2 flex flex-col">
                     <span className="font-medium text-sm">
@@ -77,17 +75,35 @@ const DeviceList: React.FC<DeviceListProps> = ({
                     </span>
                   </div>
                 </div>
-                <div className="flex shrink-0">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewDevice(device)}>
-                    <Eye className="h-4 w-4" />
-                    <span className="sr-only">View</span>
+                
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 flex-1 flex items-center justify-center" 
+                    onClick={() => handleEditDevice(device.id, 'details')}
+                  >
+                    <Edit className="h-3.5 w-3.5 mr-1" />
+                    Edit Details
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditDevice(device.id)}>
-                    <Edit className="h-4 w-4" />
-                    <span className="sr-only">Edit</span>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 flex-1 flex items-center justify-center" 
+                    onClick={() => handleEditDevice(device.id, 'location')}
+                  >
+                    <MapPin className="h-3.5 w-3.5 mr-1" />
+                    Move on Map
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRemoveDevice(device.id)}>
-                    <Trash2 className="h-4 w-4 text-red-500" />
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 w-8 flex items-center justify-center" 
+                    onClick={() => handleRemoveDevice(device.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-red-500" />
                     <span className="sr-only">Delete</span>
                   </Button>
                 </div>
