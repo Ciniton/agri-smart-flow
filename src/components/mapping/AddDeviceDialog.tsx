@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { 
   Dialog, 
@@ -119,7 +118,8 @@ const AddDeviceDialog: React.FC<AddDeviceDialogProps> = ({
                 <SelectValue placeholder="Select a field" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Unassigned</SelectItem>
+                {/* Use 'field_unassigned' instead of empty string */}
+                <SelectItem value="field_unassigned">Unassigned</SelectItem>
                 {fields.map(field => (
                   <SelectItem key={field.id} value={field.id}>
                     {field.name}
@@ -142,7 +142,8 @@ const AddDeviceDialog: React.FC<AddDeviceDialogProps> = ({
                 <SelectValue placeholder={filteredZones.length === 0 ? "No zones in selected field" : "Select a zone"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Unassigned</SelectItem>
+                {/* Use 'zone_unassigned' instead of empty string */}
+                <SelectItem value="zone_unassigned">Unassigned</SelectItem>
                 {filteredZones.map(zone => (
                   <SelectItem key={zone.id} value={zone.id}>
                     {zone.name}

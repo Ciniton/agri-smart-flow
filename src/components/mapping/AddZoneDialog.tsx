@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { 
   Dialog, 
@@ -86,6 +85,8 @@ const AddZoneDialog: React.FC<AddZoneDialogProps> = ({
                 <SelectValue placeholder="Select a field" />
               </SelectTrigger>
               <SelectContent>
+                {/* Use 'field_unassigned' instead of empty string */}
+                <SelectItem value="field_unassigned">Unassigned</SelectItem>
                 {fields.map(field => (
                   <SelectItem key={field.id} value={field.id}>{field.name}</SelectItem>
                 ))}
