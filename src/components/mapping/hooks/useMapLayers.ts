@@ -11,7 +11,8 @@ export const useMapLayers = () => {
     google: any,
     mapInstance: any, 
     fields: Field[], 
-    activeFieldId: string | null = null
+    activeFieldId: string | null = null,
+    isAddingDevice: boolean = false
   ) => {
     // Clear existing field layers
     fieldsLayerRef.current.forEach((field) => {
@@ -32,31 +33,34 @@ export const useMapLayers = () => {
           fillColor: isActive ? '#22C55E' : '#4285F4',
           fillOpacity: isActive ? 0.35 : 0.25,
           map: mapInstance,
-          editable: false
+          editable: false,
+          clickable: !isAddingDevice // Disable clicking when adding a device
         });
         
-        // Add click listener to select the field
-        google.maps.event.addListener(fieldPolygon, 'click', () => {
-          // Highlight this field
-          fieldPolygon.setOptions({
-            strokeColor: '#22C55E',
-            strokeWeight: 3,
-            fillColor: '#22C55E',
-            fillOpacity: 0.35
+        // Add click listener to select the field only if not in device placement mode
+        if (!isAddingDevice) {
+          google.maps.event.addListener(fieldPolygon, 'click', () => {
+            // Highlight this field
+            fieldPolygon.setOptions({
+              strokeColor: '#22C55E',
+              strokeWeight: 3,
+              fillColor: '#22C55E',
+              fillOpacity: 0.35
+            });
+            
+            // Center on the field
+            const bounds = new google.maps.LatLngBounds();
+            field.boundaries?.forEach(coord => {
+              bounds.extend(coord);
+            });
+            mapInstance.fitBounds(bounds);
+            
+            toast({
+              title: "Field Selected",
+              description: `Selected ${field.name}`,
+            });
           });
-          
-          // Center on the field
-          const bounds = new google.maps.LatLngBounds();
-          field.boundaries?.forEach(coord => {
-            bounds.extend(coord);
-          });
-          mapInstance.fitBounds(bounds);
-          
-          toast({
-            title: "Field Selected",
-            description: `Selected ${field.name}`,
-          });
-        });
+        }
         
         // Add label for the field
         if (field.center) {
@@ -71,7 +75,8 @@ export const useMapLayers = () => {
             icon: {
               path: google.maps.SymbolPath.CIRCLE,
               scale: 0, // Makes the marker invisible
-            }
+            },
+            clickable: false // Never clickable
           });
           
           fieldsLayerRef.current.set(`${field.id}-label`, label);
@@ -86,7 +91,8 @@ export const useMapLayers = () => {
     google: any,
     mapInstance: any, 
     zones: Zone[], 
-    activeZoneId: string | null = null
+    activeZoneId: string | null = null,
+    isAddingDevice: boolean = false
   ) => {
     // Clear existing zone layers
     zonesLayerRef.current.forEach((zone) => {
@@ -115,31 +121,34 @@ export const useMapLayers = () => {
           fillColor: isActive ? '#22C55E' : zoneColor,
           fillOpacity: isActive ? 0.35 : 0.25,
           map: mapInstance,
-          editable: false
+          editable: false,
+          clickable: !isAddingDevice // Disable clicking when adding a device
         });
         
-        // Add click listener to select the zone
-        google.maps.event.addListener(zonePolygon, 'click', () => {
-          // Highlight this zone
-          zonePolygon.setOptions({
-            strokeColor: '#22C55E',
-            strokeWeight: 3,
-            fillColor: '#22C55E',
-            fillOpacity: 0.35
+        // Add click listener to select the zone only if not in device placement mode
+        if (!isAddingDevice) {
+          google.maps.event.addListener(zonePolygon, 'click', () => {
+            // Highlight this zone
+            zonePolygon.setOptions({
+              strokeColor: '#22C55E',
+              strokeWeight: 3,
+              fillColor: '#22C55E',
+              fillOpacity: 0.35
+            });
+            
+            // Center on the zone
+            const bounds = new google.maps.LatLngBounds();
+            zone.boundaries?.forEach(coord => {
+              bounds.extend(coord);
+            });
+            mapInstance.fitBounds(bounds);
+            
+            toast({
+              title: "Irrigation Zone Selected",
+              description: `Selected ${zone.name}`,
+            });
           });
-          
-          // Center on the zone
-          const bounds = new google.maps.LatLngBounds();
-          zone.boundaries?.forEach(coord => {
-            bounds.extend(coord);
-          });
-          mapInstance.fitBounds(bounds);
-          
-          toast({
-            title: "Irrigation Zone Selected",
-            description: `Selected ${zone.name}`,
-          });
-        });
+        }
         
         // Add label for the zone
         if (zone.center) {
@@ -154,7 +163,8 @@ export const useMapLayers = () => {
             icon: {
               path: google.maps.SymbolPath.CIRCLE,
               scale: 0, // Makes the marker invisible
-            }
+            },
+            clickable: false // Never clickable
           });
           
           zonesLayerRef.current.set(`${zone.id}-label`, label);

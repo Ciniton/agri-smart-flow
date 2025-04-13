@@ -120,8 +120,8 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
         mapInitializedRef.current = true;
         
         // Render fields, zones and devices after map is fully loaded
-        renderFieldsLayer(window.google, mapInstance, fields, activeFieldId);
-        renderZonesLayer(window.google, mapInstance, zones, activeZoneId);
+        renderFieldsLayer(window.google, mapInstance, fields, activeFieldId, isAddingDevice);
+        renderZonesLayer(window.google, mapInstance, zones, activeZoneId, isAddingDevice);
         renderDeviceMarkers(window.google, mapInstance, devices, fields, zones, editingDeviceId, onLocationChange, isAddingDevice);
       });
 
@@ -265,16 +265,16 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
   // Update fields layer when fields prop changes
   useEffect(() => {
     if (map && mapInitializedRef.current && window.google) {
-      renderFieldsLayer(window.google, map, fields, activeFieldId);
+      renderFieldsLayer(window.google, map, fields, activeFieldId, isAddingDevice);
     }
-  }, [fields, activeFieldId]);
+  }, [fields, activeFieldId, isAddingDevice]);
 
   // Update zones layer when zones prop changes
   useEffect(() => {
     if (map && mapInitializedRef.current && window.google) {
-      renderZonesLayer(window.google, map, zones, activeZoneId);
+      renderZonesLayer(window.google, map, zones, activeZoneId, isAddingDevice);
     }
-  }, [zones, activeZoneId]);
+  }, [zones, activeZoneId, isAddingDevice]);
 
   // Expose methods to parent component via ref
   useImperativeHandle(ref, () => ({

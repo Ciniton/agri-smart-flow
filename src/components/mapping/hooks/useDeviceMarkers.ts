@@ -124,6 +124,10 @@ export const useDeviceMarkers = () => {
             title: "Location Selected",
             description: "Adding new device at selected location",
           });
+          
+          // Stop event propagation to prevent field/zone selection
+          event.stop();
+          return false;
         }
       });
       
