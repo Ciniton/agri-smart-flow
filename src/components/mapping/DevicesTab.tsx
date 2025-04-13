@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import InteractiveMap from '@/components/mapping/InteractiveMap';
@@ -114,13 +115,35 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
     }
   }, [selectedFieldId]);
 
+  // Define handleAddDeviceClick before using it in useEffect
+  const handleAddDeviceClick = () => {
+    // Set the field and zone IDs based on the current selections
+    setNewDevice({
+      ...newDevice,
+      fieldId: selectedFieldId !== "field_unassigned" ? selectedFieldId : undefined,
+      zoneId: selectedZoneId !== "zone_unassigned" ? selectedZoneId : undefined,
+      serialNumber: newDevice.serialNumber
+    });
+    
+    // Show the dialog
+    setShowAddDeviceDialog(true);
+    
+    // Exit the adding device mode
+    setIsAddingDevice(false);
+    
+    // Clear any temporary markers
+    if (mapRef.current) {
+      mapRef.current.clearTempMarkers();
+    }
+  };
+  
   // Auto-open device dialog when location changes and isAddingDevice is true
   useEffect(() => {
     // Only open the dialog if location has been selected by a map click while in add device mode
     if (isAddingDevice && location && location.fromMapClick) {
       handleAddDeviceClick();
     }
-  }, [location, isAddingDevice, handleAddDeviceClick]);
+  }, [location, isAddingDevice]);
   
   // When a device is selected for editing, find it and set its details
   useEffect(() => {
@@ -193,27 +216,6 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
       if (mapRef.current) {
         mapRef.current.clearTempMarkers();
       }
-    }
-  };
-
-  const handleAddDeviceClick = () => {
-    // Set the field and zone IDs based on the current selections
-    setNewDevice({
-      ...newDevice,
-      fieldId: selectedFieldId !== "field_unassigned" ? selectedFieldId : undefined,
-      zoneId: selectedZoneId !== "zone_unassigned" ? selectedZoneId : undefined,
-      serialNumber: newDevice.serialNumber
-    });
-    
-    // Show the dialog
-    setShowAddDeviceDialog(true);
-    
-    // Exit the adding device mode
-    setIsAddingDevice(false);
-    
-    // Clear any temporary markers
-    if (mapRef.current) {
-      mapRef.current.clearTempMarkers();
     }
   };
 
