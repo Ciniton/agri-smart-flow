@@ -14,7 +14,7 @@ export const useDeviceMarkers = () => {
     fields: Field[],
     zones: Zone[],
     editingDeviceId: string | null = null,
-    onLocationChange?: (lat: number, lng: number) => void,
+    onLocationChange?: (lat: number, lng: number, fromMapClick?: boolean) => void,
     isAddingDevice?: boolean
   ) => {
     // Clear existing device markers
@@ -88,16 +88,19 @@ export const useDeviceMarkers = () => {
 
     // Set up map click listener if adding device mode is active
     if (isAddingDevice && mapInstance) {
+      // Clear any existing click listeners to prevent multiple clicks
+      google.maps.event.clearListeners(mapInstance, 'click');
+      
       // Listen for map clicks to place device
-      google.maps.event.addListenerOnce(mapInstance, 'click', (event: any) => {
+      google.maps.event.addListener(mapInstance, 'click', (event: any) => {
         if (onLocationChange) {
           const clickedPosition = {
             lat: event.latLng.lat(),
-            lng: event.latLng.lng(),
-            fromMapClick: true // Add flag to indicate this came from a map click
+            lng: event.latLng.lng()
           };
           
-          onLocationChange(clickedPosition.lat, clickedPosition.lng);
+          // Pass true for fromMapClick to indicate this came from a map click
+          onLocationChange(clickedPosition.lat, clickedPosition.lng, true);
           
           // Create a temporary marker to indicate where the device will be placed
           const tempMarker = new google.maps.Marker({

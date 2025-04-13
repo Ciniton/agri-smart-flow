@@ -116,7 +116,7 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
     if (isAddingDevice && location && location.fromMapClick) {
       handleAddDeviceClick();
     }
-  }, [location, isAddingDevice]);
+  }, [location]);
 
   const handleFieldSelect = (fieldId: string) => {
     setSelectedFieldId(fieldId || "field_unassigned");

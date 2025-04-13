@@ -104,7 +104,7 @@ const Mapping: React.FC = () => {
   }, []);
   
   const handleLocationChange = (lat: number, lng: number, fromMapClick?: boolean) => {
-    setLocation({ lat, lng, fromMapClick });
+    setLocation({ lat, lng, fromMapClick: !!fromMapClick });
     console.log(`Location updated: ${lat}, ${lng}${fromMapClick ? ' (from map click)' : ''}`);
   };
   
