@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { toast } from "@/hooks/use-toast";
 import { Card, CardContent } from '@/components/ui/card';
@@ -5,6 +6,14 @@ import { Button } from '@/components/ui/button';
 import { ZoomIn, ZoomOut, Navigation, Pencil, Ruler, Layers } from 'lucide-react';
 import { DeviceMarker, Field, Zone, GoogleLatLngLiteral } from './types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
+// Declare google maps types to prevent TS errors
+declare global {
+  interface Window {
+    google: any;
+    initMap: () => void;
+  }
+}
 
 interface InteractiveMapProps {
   onLocationChange?: (lat: number, lng: number) => void;
@@ -832,3 +841,232 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
   };
 
   // Clean up function for timeouts and intervals
+  useEffect(() => {
+    return () => {
+      if (scriptLoadingTimeoutRef.current) {
+        clearTimeout(scriptLoadingTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Initialize map when component mounts
+  useEffect(() => {
+    loadGoogleMapsScript();
+
+    // Clean up function
+    return () => {
+      if (scriptLoadingTimeoutRef.current) {
+        clearTimeout(scriptLoadingTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Update mode when prop changes
+  useEffect(() => {
+    if (mode !== activeTool) {
+      setActiveTool(mode);
+      if (map && drawingManagerRef.current) {
+        setMapMode(mode);
+      }
+    }
+  }, [mode]);
+
+  // Update device markers when devices prop changes
+  useEffect(() => {
+    if (map && mapInitializedRef.current) {
+      renderDeviceMarkers(map);
+    }
+  }, [devices]);
+
+  // Update fields layer when fields prop changes
+  useEffect(() => {
+    if (map && mapInitializedRef.current) {
+      renderFieldsLayer(map);
+    }
+  }, [fields, activeFieldId]);
+
+  // Update zones layer when zones prop changes
+  useEffect(() => {
+    if (map && mapInitializedRef.current) {
+      renderZonesLayer(map);
+    }
+  }, [zones, activeZoneId]);
+
+  // Expose methods to parent component via ref
+  useImperativeHandle(ref, () => ({
+    getUserLocation,
+    centerOnLocation,
+    showField,
+    showZone
+  }));
+
+  return (
+    <div className="relative w-full">
+      {isLoading && (
+        <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center z-50">
+          <div className="space-y-4 text-center">
+            <h3 className="text-lg font-medium">Loading Google Maps...</h3>
+            <div className="w-48 h-2 bg-muted rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-primary transition-all duration-300 ease-in-out" 
+                style={{ width: `${loadingProgress}%` }} 
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">{loadingProgress}%</p>
+          </div>
+        </div>
+      )}
+      
+      {error && (
+        <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center z-50 p-4">
+          <div className="max-w-md space-y-4 text-center">
+            <h3 className="text-lg font-medium text-destructive">Error Loading Map</h3>
+            <p className="text-sm">{error}</p>
+            <Button onClick={loadGoogleMapsScript} variant="outline">Try Again</Button>
+          </div>
+        </div>
+      )}
+      
+      <div 
+        ref={mapRef} 
+        className="w-full h-[calc(100vh-20rem)] min-h-[400px] rounded-md overflow-hidden"
+      />
+      
+      <div className="absolute right-4 top-4 flex flex-col space-y-1 z-10">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                size="icon" 
+                variant="secondary"
+                onClick={handleZoomIn}
+                className="rounded-full bg-white/90 hover:bg-white shadow-md"
+              >
+                <ZoomIn className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Zoom In</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                size="icon" 
+                variant="secondary"
+                onClick={handleZoomOut}
+                className="rounded-full bg-white/90 hover:bg-white shadow-md"
+              >
+                <ZoomOut className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Zoom Out</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+      
+      <div className="absolute left-4 top-4 flex flex-col space-y-1 z-10">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                size="icon"
+                variant={activeTool === 'pan' ? "default" : "secondary"}
+                onClick={() => setMapMode('pan')}
+                className="rounded-full bg-white/90 hover:bg-white shadow-md"
+              >
+                <Navigation className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Pan</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                size="icon"
+                variant={activeTool === 'draw' ? "default" : "secondary"}
+                onClick={() => setMapMode('draw')}
+                className="rounded-full bg-white/90 hover:bg-white shadow-md"
+              >
+                <Pencil className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Draw</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                size="icon"
+                variant={activeTool === 'measure' ? "default" : "secondary"}
+                onClick={() => setMapMode('measure')}
+                className="rounded-full bg-white/90 hover:bg-white shadow-md"
+              >
+                <Ruler className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Measure</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+      
+      <div className="absolute left-4 bottom-4 flex flex-col space-y-1 z-10">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                size="icon"
+                variant="secondary"
+                onClick={toggleFieldsLayer}
+                className="rounded-full bg-white/90 hover:bg-white shadow-md"
+              >
+                <Layers className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Toggle Fields</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                size="icon"
+                variant="secondary"
+                onClick={toggleZonesLayer}
+                className="rounded-full bg-white/90 hover:bg-white shadow-md text-blue-500"
+              >
+                <Layers className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Toggle Zones</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+    </div>
+  );
+});
+
+InteractiveMap.displayName = 'InteractiveMap';
+
+export default InteractiveMap;
