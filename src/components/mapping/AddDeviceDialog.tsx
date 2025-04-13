@@ -111,7 +111,7 @@ const AddDeviceDialog: React.FC<AddDeviceDialogProps> = ({
                 <SelectValue placeholder="Select a field" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Unassigned</SelectItem>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
                 {fields.map(field => (
                   <SelectItem key={field.id} value={field.id}>
                     {field.name}
