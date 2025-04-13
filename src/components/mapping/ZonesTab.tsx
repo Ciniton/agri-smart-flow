@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import InteractiveMap from '@/components/mapping/InteractiveMap';
@@ -9,19 +10,28 @@ import { toast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
 
+interface ZoneData {
+  name: string;
+  fieldId: string;
+  irrigationType: 'low' | 'medium' | 'high';
+  boundaries?: GoogleLatLngLiteral[];
+  center?: { lat: number; lng: number };
+  area?: { squareMeters: number; hectares: number };
+}
+
 interface ZonesTabProps {
   hasApiKey: boolean;
   activeMode: 'pan' | 'draw' | 'measure';
   zones: Zone[];
   fields: Field[];
-  newZone: { name: string; fieldId: string; irrigationType: 'low' | 'medium' | 'high' };
+  newZone: ZoneData;
   showAddZoneDialog: boolean;
   onLocationChange: (lat: number, lng: number) => void;
   onModeSelect: (mode: 'pan' | 'draw' | 'measure') => void;
   onGetUserLocation: () => void;
   onSaveMap: () => void;
   setShowAddZoneDialog: (show: boolean) => void;
-  setNewZone: (zone: { name: string; fieldId: string; irrigationType: 'low' | 'medium' | 'high' }) => void;
+  setNewZone: (zone: ZoneData) => void;
   handleEditZone: (zoneId: string) => void;
   handleAddZone: () => void;
 }
@@ -76,7 +86,12 @@ const ZonesTab = forwardRef<any, ZonesTabProps>(({
 
   const handleFieldSelect = (fieldId: string) => {
     setSelectedFieldId(fieldId);
-    setNewZone({...newZone, fieldId});
+    
+    // When updating newZone, make sure to preserve existing properties
+    setNewZone({
+      ...newZone,
+      fieldId
+    });
     
     // Center the map on the selected field
     const selectedField = fields.find(f => f.id === fieldId);
@@ -135,16 +150,12 @@ const ZonesTab = forwardRef<any, ZonesTabProps>(({
       const centerPoint = getCenterOfPolygon(drawnZonePath);
       
       // Enhance the zone data before adding
-      const enhancedZone = {
+      setNewZone({
         ...newZone,
         boundaries: drawnZonePath,
         center: centerPoint,
         area: calculatedArea
-      };
-      
-      // Pass the enhanced zone to the parent's handler
-      // This requires updating the parent component to handle the enhanced data
-      setNewZone(enhancedZone);
+      });
     }
     
     // Call the parent's add zone handler
@@ -178,6 +189,20 @@ const ZonesTab = forwardRef<any, ZonesTabProps>(({
       });
     }
   }, [activeMode, showAddZoneDialog, selectedFieldId]);
+
+  // Make sure the calculated area is always updated in newZone when it changes
+  useEffect(() => {
+    if (calculatedArea && drawnZonePath) {
+      const centerPoint = getCenterOfPolygon(drawnZonePath);
+      
+      setNewZone(prevZone => ({
+        ...prevZone,
+        boundaries: drawnZonePath,
+        center: centerPoint,
+        area: calculatedArea
+      }));
+    }
+  }, [calculatedArea, drawnZonePath]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">

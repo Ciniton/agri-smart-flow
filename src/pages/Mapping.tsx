@@ -8,6 +8,15 @@ import ZonesTab from '@/components/mapping/ZonesTab';
 import DevicesTab from '@/components/mapping/DevicesTab';
 import SoilTab from '@/components/mapping/SoilTab';
 
+interface ZoneData {
+  name: string;
+  fieldId: string;
+  irrigationType: 'low' | 'medium' | 'high';
+  boundaries?: GoogleLatLngLiteral[];
+  center?: { lat: number; lng: number };
+  area?: { squareMeters: number; hectares: number };
+}
+
 const Mapping: React.FC = () => {
   const [activeTab, setActiveTab] = useState('fields');
   const [hasApiKey, setHasApiKey] = useState(false);
@@ -17,13 +26,13 @@ const Mapping: React.FC = () => {
   const [showAddZoneDialog, setShowAddZoneDialog] = useState(false);
   const [showAddDeviceDialog, setShowAddDeviceDialog] = useState(false);
   const [newField, setNewField] = useState({ name: '', area: '' });
-  const [newZone, setNewZone] = useState({ 
+  const [newZone, setNewZone] = useState<ZoneData>({ 
     name: '', 
     fieldId: '', 
     irrigationType: 'medium' as 'low' | 'medium' | 'high',
-    boundaries: undefined as GoogleLatLngLiteral[] | undefined,
-    center: undefined as { lat: number, lng: number } | undefined,
-    area: undefined as { squareMeters: number; hectares: number } | undefined
+    boundaries: undefined,
+    center: undefined,
+    area: undefined
   });
   const [newDevice, setNewDevice] = useState({ name: '', type: 'sensor' as 'sensor' | 'valve' | 'weather-station' });
   const mapRefs = useRef<{ [key: string]: any }>({
