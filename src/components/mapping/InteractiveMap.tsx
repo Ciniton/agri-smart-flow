@@ -69,7 +69,8 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
 
   const {
     deviceMarkersRef,
-    renderDeviceMarkers
+    renderDeviceMarkers,
+    clearTempMarkers
   } = useDeviceMarkers();
 
   const {
@@ -280,7 +281,8 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
     getUserLocation: handleGetUserLocation,
     centerOnLocation,
     showField: (field: Field) => showField(window.google, map, field),
-    showZone: (zone: Zone) => showZone(window.google, map, zone)
+    showZone: (zone: Zone) => showZone(window.google, map, zone),
+    clearTempMarkers: () => clearTempMarkers()
   }));
 
   return (

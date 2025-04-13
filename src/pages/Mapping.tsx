@@ -26,7 +26,7 @@ interface DeviceData {
 const Mapping: React.FC = () => {
   const [activeTab, setActiveTab] = useState('fields');
   const [hasApiKey, setHasApiKey] = useState(false);
-  const [location, setLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [location, setLocation] = useState<{lat: number, lng: number, fromMapClick?: boolean} | null>(null);
   const [activeMode, setActiveMode] = useState<'pan' | 'draw' | 'measure'>('pan');
   const [showAddFieldDialog, setShowAddFieldDialog] = useState(false);
   const [showAddZoneDialog, setShowAddZoneDialog] = useState(false);
@@ -103,9 +103,9 @@ const Mapping: React.FC = () => {
     setHasApiKey(!!apiKey);
   }, []);
   
-  const handleLocationChange = (lat: number, lng: number) => {
-    setLocation({ lat, lng });
-    console.log(`Location updated: ${lat}, ${lng}`);
+  const handleLocationChange = (lat: number, lng: number, fromMapClick?: boolean) => {
+    setLocation({ lat, lng, fromMapClick });
+    console.log(`Location updated: ${lat}, ${lng}${fromMapClick ? ' (from map click)' : ''}`);
   };
   
   const handleModeSelect = (mode: 'pan' | 'draw' | 'measure') => {

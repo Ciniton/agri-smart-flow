@@ -89,11 +89,12 @@ export const useDeviceMarkers = () => {
     // Set up map click listener if adding device mode is active
     if (isAddingDevice && mapInstance) {
       // Listen for map clicks to place device
-      google.maps.event.addListener(mapInstance, 'click', (event: any) => {
+      google.maps.event.addListenerOnce(mapInstance, 'click', (event: any) => {
         if (onLocationChange) {
           const clickedPosition = {
             lat: event.latLng.lat(),
-            lng: event.latLng.lng()
+            lng: event.latLng.lng(),
+            fromMapClick: true // Add flag to indicate this came from a map click
           };
           
           onLocationChange(clickedPosition.lat, clickedPosition.lng);
@@ -113,14 +114,13 @@ export const useDeviceMarkers = () => {
             }
           });
           
-          // Auto-open the add device dialog (this is handled in DevicesTab)
+          // Store the temp marker so we can remove it when the operation is complete
+          deviceMarkersRef.current.set('temp-marker', tempMarker);
+          
           toast({
             title: "Location Selected",
             description: "Adding new device at selected location",
           });
-          
-          // Store the temp marker so we can remove it when the operation is complete
-          deviceMarkersRef.current.set('temp-marker', tempMarker);
         }
       });
       
@@ -133,8 +133,18 @@ export const useDeviceMarkers = () => {
     }
   }, []);
 
+  const clearTempMarkers = useCallback(() => {
+    // Remove any temporary markers
+    const tempMarker = deviceMarkersRef.current.get('temp-marker');
+    if (tempMarker) {
+      tempMarker.setMap(null);
+      deviceMarkersRef.current.delete('temp-marker');
+    }
+  }, []);
+
   return {
     deviceMarkersRef,
-    renderDeviceMarkers
+    renderDeviceMarkers,
+    clearTempMarkers
   };
 };

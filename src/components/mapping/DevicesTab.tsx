@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import InteractiveMap from '@/components/mapping/InteractiveMap';
@@ -24,10 +23,10 @@ interface DevicesTabProps {
   devices: DeviceMarker[];
   fields: Field[];
   zones: Zone[];
-  location: { lat: number, lng: number } | null;
+  location: { lat: number, lng: number, fromMapClick?: boolean } | null;
   newDevice: { name: string; type: 'sensor' | 'valve' | 'weather-station'; fieldId?: string; zoneId?: string };
   showAddDeviceDialog: boolean;
-  onLocationChange: (lat: number, lng: number) => void;
+  onLocationChange: (lat: number, lng: number, fromMapClick?: boolean) => void;
   onModeSelect: (mode: 'pan' | 'draw' | 'measure') => void;
   onGetUserLocation: () => void;
   onSaveMap: () => void;
@@ -113,7 +112,8 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
 
   // Auto-open device dialog when location changes and isAddingDevice is true
   useEffect(() => {
-    if (isAddingDevice && location) {
+    // Only open the dialog if location has been selected by a map click while in add device mode
+    if (isAddingDevice && location && location.fromMapClick) {
       handleAddDeviceClick();
     }
   }, [location, isAddingDevice]);
@@ -165,6 +165,11 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
       toast({
         description: "Add Device Mode Deactivated",
       });
+      
+      // If we deactivate the mode, remove the temporary marker if it exists
+      if (mapRef.current) {
+        mapRef.current.clearTempMarkers();
+      }
     }
   };
 
@@ -181,6 +186,11 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
     
     // Exit the adding device mode
     setIsAddingDevice(false);
+    
+    // Clear any temporary markers
+    if (mapRef.current) {
+      mapRef.current.clearTempMarkers();
+    }
   };
 
   const handleViewDevice = (device: DeviceMarker) => {
