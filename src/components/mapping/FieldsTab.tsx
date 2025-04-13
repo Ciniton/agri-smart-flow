@@ -52,6 +52,7 @@ const FieldsTab = forwardRef<any, FieldsTabProps>(({
   const [calculatedArea, setCalculatedArea] = useState<{ squareMeters: number; hectares: number } | null>(null);
   const [activeFieldId, setActiveFieldId] = useState<string | null>(null);
   const [drawnFieldPath, setDrawnFieldPath] = useState<{ lat: number; lng: number }[] | null>(null);
+  const [editingField, setEditingField] = useState(false);
   
   useImperativeHandle(ref, () => ({
     getUserLocation: () => {
@@ -83,7 +84,35 @@ const FieldsTab = forwardRef<any, FieldsTabProps>(({
     setCalculatedArea(area);
     setDrawnFieldPath(path);
 
-    // Open the dialog to name the field
+    // If editing a field, update it directly
+    if (editingField && activeFieldId) {
+      const updatedFields = fields.map(field => {
+        if (field.id === activeFieldId) {
+          return {
+            ...field,
+            boundaries: path,
+            area: area,
+            center: getCenterOfPolygon(path),
+            lastModified: new Date().toISOString().split('T')[0]
+          };
+        }
+        return field;
+      });
+      
+      setFields(updatedFields);
+      setEditingField(false);
+      setActiveFieldId(null);
+      onModeSelect('pan');
+      
+      toast({
+        title: "Field Updated",
+        description: `Field boundaries have been updated with area: ${area.hectares.toFixed(2)} hectares`,
+      });
+      
+      return;
+    }
+
+    // Open the dialog to name the field for new fields
     setShowAddFieldDialog(true);
     
     toast({
@@ -166,16 +195,36 @@ const FieldsTab = forwardRef<any, FieldsTabProps>(({
       }
     }
   };
+  
+  const handleStartEditField = (field: Field) => {
+    setActiveFieldId(field.id);
+    setEditingField(true);
+    onModeSelect('draw');
+    
+    // Show the field on the map
+    if (field.center && mapRef.current) {
+      mapRef.current.centerOnLocation(field.center, 16);
+      
+      if (field.boundaries) {
+        mapRef.current.showField(field);
+      }
+    }
+    
+    toast({
+      title: "Edit Field Boundaries",
+      description: "Draw the new boundaries for this field on the map.",
+    });
+  };
 
   useEffect(() => {
     // When mode changes to draw, show instructions
     if (activeMode === 'draw' && !showAddFieldDialog) {
       toast({
-        title: "Draw Field Mode",
+        title: editingField ? "Edit Field Boundaries" : "Draw Field Mode",
         description: "Click on the map to place points and draw your field boundaries.",
       });
     }
-  }, [activeMode, showAddFieldDialog]);
+  }, [activeMode, showAddFieldDialog, editingField]);
 
   // Add a custom handler for the add field dialog
   const customHandleAddField = () => {
@@ -199,7 +248,12 @@ const FieldsTab = forwardRef<any, FieldsTabProps>(({
         <Card>
           <CardHeader>
             <CardTitle>Field Overview</CardTitle>
-            {location && (
+            {editingField && activeFieldId && (
+              <CardDescription>
+                Editing: {fields.find(f => f.id === activeFieldId)?.name}
+              </CardDescription>
+            )}
+            {location && !editingField && (
               <CardDescription>
                 Current Location: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
               </CardDescription>
@@ -241,6 +295,8 @@ const FieldsTab = forwardRef<any, FieldsTabProps>(({
         handleAddField={customHandleAddField}
         handleViewField={handleViewField}
         activeFieldId={activeFieldId || undefined}
+        handleEditBoundaries={handleStartEditField}
+        setFields={setFields}
       />
 
       {/* Replace the AddFieldDialog in FieldList with this one to show calculated area */}

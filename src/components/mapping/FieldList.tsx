@@ -1,11 +1,10 @@
 
 import React from 'react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Leaf, Edit, MapPin, Eye } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Field } from './types';
-import AddFieldDialog from './AddFieldDialog';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Plus, Eye, Edit, Trash2, MapPin } from 'lucide-react';
+import { formatDistance } from 'date-fns';
 
 interface FieldListProps {
   fields: Field[];
@@ -15,120 +14,112 @@ interface FieldListProps {
   setNewField: (field: { name: string; area: string }) => void;
   handleEditField: (fieldId: string) => void;
   handleAddField: () => void;
-  handleViewField?: (field: Field) => void; // New prop to handle viewing a field
-  activeFieldId?: string; // New prop to highlight active field
+  handleViewField: (field: Field) => void;
+  activeFieldId?: string;
+  handleEditBoundaries?: (field: Field) => void;
+  setFields?: React.Dispatch<React.SetStateAction<Field[]>>;
 }
 
 const FieldList: React.FC<FieldListProps> = ({
   fields,
-  newField,
-  showAddFieldDialog,
   setShowAddFieldDialog,
-  setNewField,
   handleEditField,
-  handleAddField,
   handleViewField,
-  activeFieldId
+  activeFieldId,
+  handleEditBoundaries,
+  setFields
 }) => {
-  // Format area to be more readable
-  const formatArea = (area: { squareMeters: number; hectares: number } | undefined) => {
-    if (!area) return '';
-    if (area.hectares < 1) {
-      return `${area.squareMeters.toLocaleString()} m²`;
+  const handleDeleteField = (fieldId: string) => {
+    if (setFields) {
+      setFields(prevFields => prevFields.filter(field => field.id !== fieldId));
     }
-    return `${area.hectares.toFixed(2)} ha`;
   };
 
   return (
-    <Card className="h-full">
-      <CardHeader>
+    <Card className="h-full flex flex-col">
+      <CardHeader className="p-4 flex flex-row items-center justify-between">
         <CardTitle>Fields</CardTitle>
+        <Button size="sm" onClick={() => setShowAddFieldDialog(true)} className="flex items-center h-8">
+          <Plus className="h-4 w-4 mr-1" /> Add
+        </Button>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {fields.length === 0 ? (
-            <div className="text-center p-4 border-2 border-dashed border-muted-foreground/20 rounded-md">
-              <p className="text-muted-foreground">No fields yet. Use the button below to add your first field.</p>
-            </div>
-          ) : (
-            fields.map((field) => (
-              <div 
-                key={field.id} 
-                className={`flex items-center justify-between p-3 ${
-                  activeFieldId === field.id 
-                    ? 'bg-primary/10 border border-primary' 
-                    : 'bg-muted hover:bg-accent'
-                } rounded cursor-pointer transition-all duration-200`}
-                onClick={() => handleViewField && handleViewField(field)}
+      <CardContent className="flex-grow p-3 overflow-auto">
+        {fields.length === 0 ? (
+          <div className="text-center text-muted-foreground p-4">
+            No fields found. Add a field using the button above.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {fields.map((field) => (
+              <div
+                key={field.id}
+                className={`p-3 rounded hover:bg-accent/40 transition-colors ${
+                  activeFieldId === field.id ? 'bg-primary/10 border border-primary' : 'bg-card'
+                }`}
               >
-                <div className="flex items-center">
-                  <Leaf className="mr-2 h-4 w-4 text-green-500" />
+                <div className="flex items-center justify-between mb-2">
                   <div>
-                    <span className="font-medium">{field.name}</span>
-                    {field.area && (
-                      <p className="text-xs text-muted-foreground">
-                        {formatArea(field.area)}
-                      </p>
-                    )}
+                    <h3 className="font-medium text-sm">{field.name}</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {field.area 
+                        ? `${field.area.hectares.toFixed(2)} ha (${field.area.squareMeters.toLocaleString()} m²)` 
+                        : 'No area data'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Last modified: {formatDistance(new Date(field.lastModified), new Date(), { addSuffix: true })}
+                    </p>
                   </div>
                 </div>
-                <div className="flex space-x-1">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleViewField && handleViewField(field);
-                          }}
-                          className="h-8 w-8"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>View field</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditField(field.id);
-                          }}
-                          className="h-8 w-8"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Edit field</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 flex items-center text-xs"
+                    onClick={() => handleViewField(field)}
+                  >
+                    <Eye className="h-3.5 w-3.5 mr-1" />
+                    View
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 flex items-center text-xs"
+                    onClick={() => handleEditField(field.id)}
+                  >
+                    <Edit className="h-3.5 w-3.5 mr-1" />
+                    Edit Details
+                  </Button>
+
+                  {handleEditBoundaries && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 flex items-center text-xs"
+                      onClick={() => handleEditBoundaries(field)}
+                    >
+                      <MapPin className="h-3.5 w-3.5 mr-1" />
+                      Edit Boundaries
+                    </Button>
+                  )}
+
+                  {setFields && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 flex items-center justify-center"
+                      onClick={() => handleDeleteField(field.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                      <span className="sr-only">Delete</span>
+                    </Button>
+                  )}
                 </div>
               </div>
-            ))
-          )}
-          
-          <AddFieldDialog
-            open={showAddFieldDialog}
-            onOpenChange={setShowAddFieldDialog}
-            fieldName={newField.name}
-            fieldArea={newField.area}
-            onFieldNameChange={(name) => setNewField({...newField, name})}
-            onFieldAreaChange={(area) => setNewField({...newField, area})}
-            onAddField={handleAddField}
-          />
-        </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

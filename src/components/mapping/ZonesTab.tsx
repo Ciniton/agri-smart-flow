@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import InteractiveMap from '@/components/mapping/InteractiveMap';
@@ -56,6 +57,7 @@ const ZonesTab = forwardRef<any, ZonesTabProps>(({
   const [activeZoneId, setActiveZoneId] = useState<string | null>(null);
   const [drawnZonePath, setDrawnZonePath] = useState<GoogleLatLngLiteral[] | null>(null);
   const [calculatedArea, setCalculatedArea] = useState<{ squareMeters: number; hectares: number } | null>(null);
+  const [editingZone, setEditingZone] = useState(false);
   
   useImperativeHandle(ref, () => ({
     getUserLocation: () => {
@@ -120,10 +122,64 @@ const ZonesTab = forwardRef<any, ZonesTabProps>(({
       }
     }
   };
+  
+  const handleStartEditZone = (zone: Zone) => {
+    setActiveZoneId(zone.id);
+    setEditingZone(true);
+    setSelectedFieldId(zone.fieldId);
+    onModeSelect('draw');
+    
+    // Show the zone on the map
+    if (zone.boundaries && mapRef.current) {
+      mapRef.current.showZone(zone);
+    }
+    
+    toast({
+      title: "Edit Zone Boundaries",
+      description: "Draw the new boundaries for this irrigation zone on the map.",
+    });
+  };
 
   const handleZoneDrawn = (path: GoogleLatLngLiteral[], area: { squareMeters: number; hectares: number }) => {
     setDrawnZonePath(path);
     setCalculatedArea(area);
+    
+    // If editing a zone, update it directly
+    if (editingZone && activeZoneId) {
+      const zoneToUpdate = zones.find(z => z.id === activeZoneId);
+      if (zoneToUpdate) {
+        const updatedZones = zones.map(zone => {
+          if (zone.id === activeZoneId) {
+            return {
+              ...zone,
+              boundaries: path,
+              area: area,
+              center: getCenterOfPolygon(path),
+              lastModified: new Date().toISOString().split('T')[0]
+            };
+          }
+          return zone;
+        });
+        
+        // Update zones in the parent component
+        // This would need to be implemented in the Mapping.tsx
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('zones', JSON.stringify(updatedZones));
+          window.location.reload(); // Simple way to update the state
+        }
+        
+        setEditingZone(false);
+        setActiveZoneId(null);
+        onModeSelect('pan');
+        
+        toast({
+          title: "Zone Updated",
+          description: `Zone boundaries have been updated with area: ${area.hectares.toFixed(2)} hectares`,
+        });
+        
+        return;
+      }
+    }
     
     // Auto-open the add zone dialog with pre-populated area
     setShowAddZoneDialog(true);
@@ -184,11 +240,11 @@ const ZonesTab = forwardRef<any, ZonesTabProps>(({
     // When mode changes to draw, show instructions
     if (activeMode === 'draw' && !showAddZoneDialog && selectedFieldId) {
       toast({
-        title: "Draw Irrigation Zone",
+        title: editingZone ? "Edit Zone Boundaries" : "Draw Irrigation Zone",
         description: "Click on the map to place points and draw your irrigation zone boundaries.",
       });
     }
-  }, [activeMode, showAddZoneDialog, selectedFieldId]);
+  }, [activeMode, showAddZoneDialog, selectedFieldId, editingZone]);
 
   // Fix the type error in this useEffect
   useEffect(() => {
@@ -214,7 +270,12 @@ const ZonesTab = forwardRef<any, ZonesTabProps>(({
         <Card>
           <CardHeader>
             <CardTitle>Irrigation Zones</CardTitle>
-            {selectedFieldId && (
+            {editingZone && activeZoneId && (
+              <CardDescription>
+                Editing: {zones.find(z => z.id === activeZoneId)?.name}
+              </CardDescription>
+            )}
+            {selectedFieldId && !editingZone && (
               <CardDescription>
                 Selected Field: {fields.find(f => f.id === selectedFieldId)?.name || 'None'}
                 {calculatedArea && ` | Zone Area: ${calculatedArea.squareMeters.toLocaleString()} m² (${calculatedArea.hectares.toFixed(2)} ha)`}
@@ -295,6 +356,7 @@ const ZonesTab = forwardRef<any, ZonesTabProps>(({
         handleAddZone={handleAddZoneWithArea}
         onViewZone={handleViewZone}
         calculatedArea={calculatedArea}
+        handleEditBoundaries={handleStartEditZone}
       />
     </div>
   );

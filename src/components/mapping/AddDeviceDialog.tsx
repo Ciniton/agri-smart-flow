@@ -1,167 +1,156 @@
 
 import React from 'react';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
-} from "@/components/ui/dialog";
-import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { MapPin } from 'lucide-react';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Field, Zone } from './types';
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Hash } from 'lucide-react';
+
+interface DeviceData {
+  name: string;
+  type: 'sensor' | 'valve' | 'weather-station';
+  fieldId?: string;
+  zoneId?: string;
+  serialNumber?: string;
+}
 
 interface AddDeviceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  deviceName: string;
-  deviceType: 'sensor' | 'valve' | 'weather-station';
-  location: { lat: number, lng: number } | null;
-  onDeviceNameChange: (name: string) => void;
-  onDeviceTypeChange: (type: 'sensor' | 'valve' | 'weather-station') => void;
+  device: DeviceData;
+  onDeviceChange: (device: DeviceData) => void;
   onAddDevice: () => void;
-  fields?: Field[];
-  selectedFieldId?: string;
-  onFieldSelect?: (fieldId: string) => void;
-  zones?: Zone[];
-  selectedZoneId?: string;
-  onZoneSelect?: (zoneId: string) => void;
-  filteredZones?: Zone[];
+  fields: Field[];
+  zones: Zone[];
+  isEditing?: boolean;
 }
 
 const AddDeviceDialog: React.FC<AddDeviceDialogProps> = ({
   open,
   onOpenChange,
-  deviceName,
-  deviceType,
-  location,
-  onDeviceNameChange,
-  onDeviceTypeChange,
+  device,
+  onDeviceChange,
   onAddDevice,
-  fields = [],
-  selectedFieldId = '',
-  onFieldSelect = () => {},
-  zones = [],
-  selectedZoneId = '',
-  onZoneSelect = () => {},
-  filteredZones = zones
+  fields,
+  zones,
+  isEditing = false
 }) => {
+  // Filter zones based on selected field
+  const filteredZones = device.fieldId 
+    ? zones.filter(zone => zone.fieldId === device.fieldId)
+    : zones;
+  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button variant="outline">
-          <MapPin className="mr-2 h-4 w-4" />
-          Place Device
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add New Device</DialogTitle>
-          <DialogDescription>
-            Enter device details to place it at the selected location.
-            {location ? ` (${location.lat.toFixed(6)}, ${location.lng.toFixed(6)})` : ' Please select a location on the map first.'}
-          </DialogDescription>
+          <DialogTitle>{isEditing ? 'Edit Device' : 'Add New Device'}</DialogTitle>
         </DialogHeader>
+        
         <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="deviceName" className="text-right">
-              Device Name
-            </Label>
+          <div className="grid gap-2">
+            <Label htmlFor="name">Device Name</Label>
             <Input
-              id="deviceName"
+              id="name"
+              value={device.name}
+              onChange={(e) => onDeviceChange({ ...device, name: e.target.value })}
               placeholder="Enter device name"
-              className="col-span-3"
-              value={deviceName}
-              onChange={(e) => onDeviceNameChange(e.target.value)}
-              autoFocus
             />
           </div>
           
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="deviceType" className="text-right">
-              Device Type
-            </Label>
+          <div className="grid gap-2">
+            <Label htmlFor="type">Device Type</Label>
             <Select
-              value={deviceType}
-              onValueChange={(value) => onDeviceTypeChange(value as 'sensor' | 'valve' | 'weather-station')}
+              value={device.type}
+              onValueChange={(value: 'sensor' | 'valve' | 'weather-station') => 
+                onDeviceChange({ ...device, type: value })
+              }
             >
-              <SelectTrigger className="col-span-3">
+              <SelectTrigger id="type">
                 <SelectValue placeholder="Select device type" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="sensor">Soil Moisture Sensor</SelectItem>
-                <SelectItem value="valve">Valve Controller</SelectItem>
+                <SelectItem value="valve">Irrigation Valve</SelectItem>
                 <SelectItem value="weather-station">Weather Station</SelectItem>
               </SelectContent>
             </Select>
           </div>
           
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="fieldSelect" className="text-right">
-              Assign to Field
-            </Label>
+          <div className="grid gap-2">
+            <Label htmlFor="serialNumber">Serial Number</Label>
+            <div className="relative">
+              <Hash className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="serialNumber"
+                value={device.serialNumber || ''}
+                onChange={(e) => onDeviceChange({ ...device, serialNumber: e.target.value })}
+                placeholder="Enter device serial number"
+                className="pl-8"
+              />
+            </div>
+          </div>
+          
+          <div className="grid gap-2">
+            <Label htmlFor="field">Assign to Field</Label>
             <Select
-              value={selectedFieldId || "field_unassigned"}
-              onValueChange={onFieldSelect}
+              value={device.fieldId || 'field_unassigned'}
+              onValueChange={(value) => {
+                // When field changes, clear zone selection if it doesn't belong to the new field
+                const fieldId = value === 'field_unassigned' ? undefined : value;
+                const newZoneId = device.zoneId && 
+                  zones.find(z => z.id === device.zoneId && z.fieldId === fieldId) 
+                  ? device.zoneId 
+                  : undefined;
+                
+                onDeviceChange({ 
+                  ...device, 
+                  fieldId: fieldId, 
+                  zoneId: newZoneId 
+                });
+              }}
             >
-              <SelectTrigger className="col-span-3" id="fieldSelect">
+              <SelectTrigger id="field">
                 <SelectValue placeholder="Select a field" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="field_unassigned">Unassigned</SelectItem>
-                {fields.map(field => (
-                  <SelectItem key={field.id} value={field.id}>
-                    {field.name}
-                  </SelectItem>
+                {fields.map((field) => (
+                  <SelectItem key={field.id} value={field.id}>{field.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="zoneSelect" className="text-right">
-              Assign to Zone
-            </Label>
+          <div className="grid gap-2">
+            <Label htmlFor="zone">Assign to Irrigation Zone</Label>
             <Select
-              value={selectedZoneId || "zone_unassigned"}
-              onValueChange={onZoneSelect}
-              disabled={filteredZones.length === 0}
+              value={device.zoneId || 'zone_unassigned'}
+              onValueChange={(value) => 
+                onDeviceChange({ 
+                  ...device, 
+                  zoneId: value === 'zone_unassigned' ? undefined : value 
+                })
+              }
+              disabled={!device.fieldId || device.fieldId === 'field_unassigned'}
             >
-              <SelectTrigger className="col-span-3" id="zoneSelect">
-                <SelectValue placeholder={filteredZones.length === 0 ? "No zones in selected field" : "Select a zone"} />
+              <SelectTrigger id="zone">
+                <SelectValue placeholder="Select a zone" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="zone_unassigned">Unassigned</SelectItem>
-                {filteredZones.map(zone => (
-                  <SelectItem key={zone.id} value={zone.id}>
-                    {zone.name}
-                  </SelectItem>
+                {filteredZones.map((zone) => (
+                  <SelectItem key={zone.id} value={zone.id}>{zone.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
         </div>
+        
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={onAddDevice}
-            disabled={!deviceName.trim() || !location}
-          >
-            Add Device
-          </Button>
+          <Button onClick={onAddDevice}>{isEditing ? 'Save Changes' : 'Add Device'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

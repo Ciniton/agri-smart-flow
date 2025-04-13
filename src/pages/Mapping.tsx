@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from "@/hooks/use-toast";
@@ -21,6 +22,7 @@ interface DeviceData {
   type: 'sensor' | 'valve' | 'weather-station';
   fieldId?: string;
   zoneId?: string;
+  serialNumber?: string;
 }
 
 const Mapping: React.FC = () => {
@@ -45,7 +47,8 @@ const Mapping: React.FC = () => {
     name: '', 
     type: 'sensor' as 'sensor' | 'valve' | 'weather-station',
     fieldId: 'field_unassigned',
-    zoneId: 'zone_unassigned'
+    zoneId: 'zone_unassigned',
+    serialNumber: ''
   });
   
   const mapRefs = useRef<{ [key: string]: any }>({
@@ -78,9 +81,9 @@ const Mapping: React.FC = () => {
   const [devices, setDevices] = useState<DeviceMarker[]>(() => {
     const savedDevices = localStorage.getItem('devices');
     return savedDevices ? JSON.parse(savedDevices) : [
-      { id: '1', name: 'Soil Moisture Sensor 1', type: 'sensor', position: { lat: 40.7128, lng: -74.0060 }, fieldId: 'f1', zoneId: 'z1' },
-      { id: '2', name: 'Valve Controller 1', type: 'valve', position: { lat: 40.7135, lng: -74.0050 }, fieldId: 'f1', zoneId: 'z1' },
-      { id: '3', name: 'Weather Station 1', type: 'weather-station', position: { lat: 40.7140, lng: -74.0065 }, fieldId: 'f2', zoneId: 'z2' }
+      { id: '1', name: 'Soil Moisture Sensor 1', type: 'sensor', position: { lat: 40.7128, lng: -74.0060 }, fieldId: 'f1', zoneId: 'z1', serialNumber: 'SM000123' },
+      { id: '2', name: 'Valve Controller 1', type: 'valve', position: { lat: 40.7135, lng: -74.0050 }, fieldId: 'f1', zoneId: 'z1', serialNumber: 'VC000456' },
+      { id: '3', name: 'Weather Station 1', type: 'weather-station', position: { lat: 40.7140, lng: -74.0065 }, fieldId: 'f2', zoneId: 'z2', serialNumber: 'WS000789' }
     ];
   });
   
@@ -113,7 +116,7 @@ const Mapping: React.FC = () => {
     
     const modeMessages = {
       pan: 'Pan mode activated. Click and drag to move around the map.',
-      draw: 'Draw mode activated. Click on the map to start drawing a field boundary.',
+      draw: 'Draw mode activated. Click on the map to start drawing.',
       measure: 'Measure mode activated. Click to place points and measure distance between them.'
     };
     
@@ -323,24 +326,17 @@ const Mapping: React.FC = () => {
       id: `device-${Date.now()}`,
       name: newDevice.name,
       type: newDevice.type,
-      position: { ...location }
+      position: { ...location },
+      serialNumber: newDevice.serialNumber || undefined
     };
     
     // Add field and zone IDs if they are selected and valid
     if (newDevice.fieldId && newDevice.fieldId !== 'field_unassigned') {
       device.fieldId = newDevice.fieldId;
-      
-      // If we have a selected field, check if the location is within that field
-      // This functionality would require polygon containment check which we don't have now
-      // For now, we'll just assign the field ID
     }
     
     if (newDevice.zoneId && newDevice.zoneId !== 'zone_unassigned') {
       device.zoneId = newDevice.zoneId;
-      
-      // If we have a selected zone, check if the location is within that zone
-      // This functionality would require polygon containment check which we don't have now
-      // For now, we'll just assign the zone ID
     }
     
     setDevices([...devices, device]);
@@ -348,7 +344,8 @@ const Mapping: React.FC = () => {
       name: '', 
       type: 'sensor',
       fieldId: 'field_unassigned',
-      zoneId: 'zone_unassigned'
+      zoneId: 'zone_unassigned',
+      serialNumber: ''
     });
     setShowAddDeviceDialog(false);
     setLocation(null);

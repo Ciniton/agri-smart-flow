@@ -2,7 +2,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Thermometer, Droplets, Sun, Edit, MapPin, Trash2, Plus } from 'lucide-react';
+import { Thermometer, Droplets, Sun, Edit, MapPin, Trash2, Plus, Hash } from 'lucide-react';
 import { DeviceMarker, Field, Zone } from './types';
 
 interface DeviceListProps {
@@ -67,12 +67,20 @@ const DeviceList: React.FC<DeviceListProps> = ({
                       {device.name}
                       {editingDeviceId === device.id && ' (Editing)'}
                     </span>
-                    <span className="text-xs text-muted-foreground truncate max-w-[200px]">
-                      {device.fieldId && fields.find(f => f.id === device.fieldId)?.name}
-                      {device.zoneId && zones.find(z => z.id === device.zoneId) && 
-                        ` → ${zones.find(z => z.id === device.zoneId)?.name}`
-                      }
-                    </span>
+                    <div className="flex flex-col text-xs text-muted-foreground">
+                      <span className="truncate max-w-[200px]">
+                        {device.fieldId && fields.find(f => f.id === device.fieldId)?.name}
+                        {device.zoneId && zones.find(z => z.id === device.zoneId) && 
+                          ` → ${zones.find(z => z.id === device.zoneId)?.name}`
+                        }
+                      </span>
+                      {device.serialNumber && (
+                        <span className="flex items-center">
+                          <Hash className="h-3 w-3 mr-1" />
+                          {device.serialNumber}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 

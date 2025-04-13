@@ -6,6 +6,7 @@ export interface DeviceMarker {
   position: { lat: number; lng: number };
   fieldId?: string; // Associate device with a specific field
   zoneId?: string; // Associate device with a specific irrigation zone
+  serialNumber?: string; // Device serial number
   lastReading?: any; // Store the last reading from this device
   settings?: any; // Device configuration settings
 }
