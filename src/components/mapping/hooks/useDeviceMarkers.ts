@@ -47,11 +47,13 @@ export const useDeviceMarkers = () => {
         google.maps.event.addListener(marker, 'dragend', (event: any) => {
           if (onLocationChange) {
             onLocationChange(event.latLng.lat(), event.latLng.lng());
+            
+            // Immediately show a success toast to indicate the device was moved
+            toast({
+              title: "Device Moved",
+              description: `Device "${device.name}" moved to new location. Remember to save your changes.`,
+            });
           }
-          toast({
-            title: "Device Moved",
-            description: `Device "${device.name}" moved to new location`,
-          });
         });
 
         // Center on the editing device
@@ -61,6 +63,7 @@ export const useDeviceMarkers = () => {
 
       // Add click listener to select the device
       google.maps.event.addListener(marker, 'click', () => {
+        // Store the current position
         if (onLocationChange) {
           onLocationChange(device.position.lat, device.position.lng);
         }
@@ -131,6 +134,8 @@ export const useDeviceMarkers = () => {
           
           // Stop event propagation to prevent field/zone selection
           event.stop();
+          event.stopPropagation();
+          event.preventDefault();
           return false;
         }
       });

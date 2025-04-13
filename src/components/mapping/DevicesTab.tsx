@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import InteractiveMap from '@/components/mapping/InteractiveMap';
@@ -315,23 +314,31 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
       return;
     }
     
-    // Update the device in the devices list
-    setDevices(devices.map(device => {
+    // Update the device in the devices list - use the most recent location
+    const updatedDevices = devices.map(device => {
       if (device.id === editingDevice.id) {
         return {
           ...editingDevice,
           fieldId: selectedFieldId !== "field_unassigned" ? selectedFieldId : undefined,
           zoneId: selectedZoneId !== "zone_unassigned" ? selectedZoneId : undefined,
-          position: location || device.position // If location has been updated, use it
+          position: location || device.position // Use the latest location if available
         };
       }
       return device;
-    }));
+    });
+    
+    // Update the devices state
+    setDevices(updatedDevices);
     
     // Reset state and close dialog
     setShowEditDeviceDialog(false);
     setEditingDeviceId(null);
     setEditingDevice(null);
+    
+    // Clear any temporary location state
+    if (onLocationChange) {
+      onLocationChange(0, 0);
+    }
     
     toast({
       title: "Device Updated",

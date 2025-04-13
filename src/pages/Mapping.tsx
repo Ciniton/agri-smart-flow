@@ -329,10 +329,18 @@ const Mapping: React.FC = () => {
     // Add field and zone IDs if they are selected and valid
     if (newDevice.fieldId && newDevice.fieldId !== 'field_unassigned') {
       device.fieldId = newDevice.fieldId;
+      
+      // If we have a selected field, check if the location is within that field
+      // This functionality would require polygon containment check which we don't have now
+      // For now, we'll just assign the field ID
     }
     
     if (newDevice.zoneId && newDevice.zoneId !== 'zone_unassigned') {
       device.zoneId = newDevice.zoneId;
+      
+      // If we have a selected zone, check if the location is within that zone
+      // This functionality would require polygon containment check which we don't have now
+      // For now, we'll just assign the zone ID
     }
     
     setDevices([...devices, device]);
@@ -343,6 +351,7 @@ const Mapping: React.FC = () => {
       zoneId: 'zone_unassigned'
     });
     setShowAddDeviceDialog(false);
+    setLocation(null);
     
     toast({
       title: "Device Added",
