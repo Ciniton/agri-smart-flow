@@ -16,7 +16,8 @@ export const useDeviceMarkers = () => {
     editingDeviceId: string | null = null,
     onLocationChange?: (lat: number, lng: number, fromMapClick?: boolean) => void,
     isAddingDevice?: boolean,
-    onDeviceSelect?: (deviceId: string) => void
+    onDeviceSelect?: (deviceId: string) => void,
+    isEditingLocation?: boolean
   ) => {
     // Clear existing device markers
     deviceMarkersRef.current.forEach((marker) => {
@@ -38,12 +39,13 @@ export const useDeviceMarkers = () => {
         map: mapInstance,
         title: device.name,
         icon: markerIcon,
-        draggable: device.id === editingDeviceId, // Only make it draggable if it's being edited
+        // Only make it draggable if it's being edited AND in location edit mode
+        draggable: device.id === editingDeviceId && isEditingLocation,
         animation: device.id === editingDeviceId ? google.maps.Animation.BOUNCE : null
       });
 
-      // If this marker is the one being edited, add a drag end listener
-      if (device.id === editingDeviceId) {
+      // If this marker is the one being edited and we're in location edit mode
+      if (device.id === editingDeviceId && isEditingLocation) {
         google.maps.event.addListener(marker, 'dragend', (event: any) => {
           if (onLocationChange) {
             onLocationChange(event.latLng.lat(), event.latLng.lng());
