@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import InteractiveMap from '@/components/mapping/InteractiveMap';
@@ -26,14 +25,14 @@ interface DevicesTabProps {
   fields: Field[];
   zones: Zone[];
   location: { lat: number, lng: number, fromMapClick?: boolean } | null;
-  newDevice: { name: string; type: 'sensor' | 'valve' | 'weather-station'; fieldId?: string; zoneId?: string };
+  newDevice: { name: string; type: 'sensor' | 'valve' | 'weather-station'; fieldId?: string; zoneId?: string; serialNumber?: string };
   showAddDeviceDialog: boolean;
   onLocationChange: (lat: number, lng: number, fromMapClick?: boolean) => void;
   onModeSelect: (mode: 'pan' | 'draw' | 'measure') => void;
   onGetUserLocation: () => void;
   onSaveMap: () => void;
   setShowAddDeviceDialog: (show: boolean) => void;
-  setNewDevice: (device: { name: string; type: 'sensor' | 'valve' | 'weather-station'; fieldId?: string; zoneId?: string }) => void;
+  setNewDevice: (device: { name: string; type: 'sensor' | 'valve' | 'weather-station'; fieldId?: string; zoneId?: string; serialNumber?: string }) => void;
   handleEditDevice: (deviceId: string) => void;
   handleAddDevice: () => void;
   setDevices: React.Dispatch<React.SetStateAction<DeviceMarker[]>>;
@@ -121,7 +120,7 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
     if (isAddingDevice && location && location.fromMapClick) {
       handleAddDeviceClick();
     }
-  }, [location]);
+  }, [location, isAddingDevice, handleAddDeviceClick]);
   
   // When a device is selected for editing, find it and set its details
   useEffect(() => {
@@ -173,12 +172,8 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
     }
   };
 
-  const handleDeviceNameChange = (name: string) => {
-    setNewDevice({ ...newDevice, name });
-  };
-
-  const handleDeviceTypeChange = (type: 'sensor' | 'valve' | 'weather-station') => {
-    setNewDevice({ ...newDevice, type });
+  const handleDeviceChange = (device: { name: string; type: 'sensor' | 'valve' | 'weather-station'; fieldId?: string; zoneId?: string; serialNumber?: string }) => {
+    setNewDevice(device);
   };
 
   const toggleAddDeviceMode = () => {
@@ -206,7 +201,8 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
     setNewDevice({
       ...newDevice,
       fieldId: selectedFieldId !== "field_unassigned" ? selectedFieldId : undefined,
-      zoneId: selectedZoneId !== "zone_unassigned" ? selectedZoneId : undefined
+      zoneId: selectedZoneId !== "zone_unassigned" ? selectedZoneId : undefined,
+      serialNumber: newDevice.serialNumber
     });
     
     // Show the dialog
@@ -286,7 +282,8 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
       type: newDevice.type,
       position: { ...location },
       fieldId: selectedFieldId !== "field_unassigned" ? selectedFieldId : undefined,
-      zoneId: selectedZoneId !== "zone_unassigned" ? selectedZoneId : undefined
+      zoneId: selectedZoneId !== "zone_unassigned" ? selectedZoneId : undefined,
+      serialNumber: newDevice.serialNumber
     };
     
     // Add to devices list
@@ -297,7 +294,8 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
       name: '', 
       type: 'sensor',
       fieldId: selectedFieldId,
-      zoneId: selectedZoneId
+      zoneId: selectedZoneId,
+      serialNumber: ''
     });
     setShowAddDeviceDialog(false);
     
@@ -490,19 +488,11 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
               <AddDeviceDialog
                 open={showAddDeviceDialog}
                 onOpenChange={setShowAddDeviceDialog}
-                deviceName={newDevice.name}
-                deviceType={newDevice.type}
-                location={location}
-                onDeviceNameChange={handleDeviceNameChange}
-                onDeviceTypeChange={handleDeviceTypeChange}
+                device={newDevice}
+                onDeviceChange={handleDeviceChange}
                 onAddDevice={handleDeviceAddSubmit}
                 fields={fields}
-                selectedFieldId={selectedFieldId}
-                onFieldSelect={handleFieldSelect}
                 zones={zones}
-                selectedZoneId={selectedZoneId}
-                onZoneSelect={handleZoneSelect}
-                filteredZones={filteredZones}
               />
               
               {/* Edit Device Dialog */}

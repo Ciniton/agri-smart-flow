@@ -55,6 +55,18 @@ const ZoneList: React.FC<ZoneListProps> = ({
     }
   };
 
+  const handleZoneNameChange = (name: string) => {
+    setNewZone({ ...newZone, name });
+  };
+
+  const handleFieldIdChange = (id: string) => {
+    setNewZone({ ...newZone, fieldId: id });
+  };
+
+  const handleIrrigationTypeChange = (type: 'low' | 'medium' | 'high') => {
+    setNewZone({ ...newZone, irrigationType: type });
+  };
+
   return (
     <>
       <Card className="h-full flex flex-col">
@@ -142,10 +154,14 @@ const ZoneList: React.FC<ZoneListProps> = ({
       <AddZoneDialog
         open={showAddZoneDialog}
         onOpenChange={setShowAddZoneDialog}
-        fields={fields}
-        zone={newZone}
-        onZoneChange={setNewZone}
+        zoneName={newZone.name}
+        fieldId={newZone.fieldId}
+        irrigationType={newZone.irrigationType}
+        onZoneNameChange={handleZoneNameChange}
+        onFieldIdChange={handleFieldIdChange}
+        onIrrigationTypeChange={handleIrrigationTypeChange}
         onAddZone={handleAddZone}
+        fields={fields}
         calculatedArea={calculatedArea}
       />
     </>
