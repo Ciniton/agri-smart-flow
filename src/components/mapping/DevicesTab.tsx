@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import InteractiveMap from '@/components/mapping/InteractiveMap';
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 interface DevicesTabProps {
   hasApiKey: boolean;
@@ -63,6 +65,8 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
   const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null);
   const [isAddingDevice, setIsAddingDevice] = useState<boolean>(false);
+  const [showEditDeviceDialog, setShowEditDeviceDialog] = useState<boolean>(false);
+  const [editingDevice, setEditingDevice] = useState<DeviceMarker | null>(null);
   const mapRef = useRef<any>(null);
 
   // Create a list of zones filtered by the selected field
@@ -117,6 +121,27 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
       handleAddDeviceClick();
     }
   }, [location]);
+  
+  // When a device is selected for editing, find it and set its details
+  useEffect(() => {
+    if (editingDeviceId) {
+      const device = devices.find(d => d.id === editingDeviceId);
+      if (device) {
+        setEditingDevice(device);
+        
+        // Set the field and zone selections to match the device
+        if (device.fieldId) {
+          setSelectedFieldId(device.fieldId);
+        }
+        
+        if (device.zoneId) {
+          setSelectedZoneId(device.zoneId);
+        }
+        
+        setShowEditDeviceDialog(true);
+      }
+    }
+  }, [editingDeviceId, devices]);
 
   const handleFieldSelect = (fieldId: string) => {
     setSelectedFieldId(fieldId || "field_unassigned");
@@ -253,8 +278,88 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
     });
   };
 
+  const handleDeviceSelectForEdit = (deviceId: string) => {
+    // Set the current device as being edited
+    setEditingDeviceId(deviceId);
+    
+    // Update the map to make this device draggable
+    if (mapRef.current) {
+      const device = devices.find(d => d.id === deviceId);
+      if (device) {
+        onLocationChange(device.position.lat, device.position.lng);
+      }
+    }
+    
+    toast({
+      title: "Edit Device",
+      description: "You can now move the device or edit its details",
+    });
+  };
+
+  const handleEditDeviceDialogClose = () => {
+    setShowEditDeviceDialog(false);
+    setEditingDeviceId(null);
+    setEditingDevice(null);
+  };
+
+  const handleUpdateDevice = () => {
+    if (!editingDevice) return;
+    
+    // Make sure we have the required data
+    if (!editingDevice.name) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter a device name.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Update the device in the devices list
+    setDevices(devices.map(device => {
+      if (device.id === editingDevice.id) {
+        return {
+          ...editingDevice,
+          fieldId: selectedFieldId !== "field_unassigned" ? selectedFieldId : undefined,
+          zoneId: selectedZoneId !== "zone_unassigned" ? selectedZoneId : undefined,
+          position: location || device.position // If location has been updated, use it
+        };
+      }
+      return device;
+    }));
+    
+    // Reset state and close dialog
+    setShowEditDeviceDialog(false);
+    setEditingDeviceId(null);
+    setEditingDevice(null);
+    
+    toast({
+      title: "Device Updated",
+      description: `${editingDevice.name} has been updated.`,
+    });
+  };
+
+  const handleEditingDeviceNameChange = (name: string) => {
+    if (editingDevice) {
+      setEditingDevice({ ...editingDevice, name });
+    }
+  };
+
+  const handleEditingDeviceTypeChange = (type: 'sensor' | 'valve' | 'weather-station') => {
+    if (editingDevice) {
+      setEditingDevice({ ...editingDevice, type });
+    }
+  };
+
   const handleRemoveDevice = (deviceId: string) => {
     setDevices(devices.filter(device => device.id !== deviceId));
+    
+    // If we were editing this device, close the dialog
+    if (editingDeviceId === deviceId) {
+      setShowEditDeviceDialog(false);
+      setEditingDeviceId(null);
+      setEditingDevice(null);
+    }
     
     toast({
       title: "Device Removed",
@@ -344,6 +449,7 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
                 activeFieldId={selectedFieldId !== "field_unassigned" ? selectedFieldId : null}
                 activeZoneId={selectedZoneId !== "zone_unassigned" ? selectedZoneId : null}
                 isAddingDevice={isAddingDevice}
+                onDeviceSelect={handleDeviceSelectForEdit}
               />
             ) : (
               <MapPlaceholder>
@@ -380,6 +486,142 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
                 onZoneSelect={handleZoneSelect}
                 filteredZones={filteredZones}
               />
+              
+              {/* Edit Device Dialog */}
+              <Dialog open={showEditDeviceDialog} onOpenChange={setShowEditDeviceDialog}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edit Device</DialogTitle>
+                  </DialogHeader>
+                  
+                  {editingDevice && (
+                    <div className="space-y-4 py-4">
+                      {/* Device Name */}
+                      <div className="space-y-2">
+                        <label htmlFor="edit-device-name" className="text-sm font-medium">
+                          Device Name
+                        </label>
+                        <input
+                          id="edit-device-name"
+                          value={editingDevice.name}
+                          onChange={(e) => handleEditingDeviceNameChange(e.target.value)}
+                          type="text"
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          placeholder="Enter device name"
+                        />
+                      </div>
+                      
+                      {/* Device Type */}
+                      <div className="space-y-2">
+                        <label htmlFor="edit-device-type" className="text-sm font-medium">
+                          Device Type
+                        </label>
+                        <Select
+                          value={editingDevice.type}
+                          onValueChange={(value: 'sensor' | 'valve' | 'weather-station') => handleEditingDeviceTypeChange(value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select device type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="sensor">Soil Moisture Sensor</SelectItem>
+                            <SelectItem value="valve">Valve Controller</SelectItem>
+                            <SelectItem value="weather-station">Weather Station</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      {/* Field assignment */}
+                      <div className="space-y-2">
+                        <label htmlFor="edit-device-field" className="text-sm font-medium">
+                          Assign to Field
+                        </label>
+                        <Select
+                          value={selectedFieldId}
+                          onValueChange={handleFieldSelect}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a field" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="field_unassigned">Unassigned</SelectItem>
+                            {fields.map(field => (
+                              <SelectItem key={field.id} value={field.id}>{field.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      {/* Zone assignment */}
+                      <div className="space-y-2">
+                        <label htmlFor="edit-device-zone" className="text-sm font-medium">
+                          Assign to Zone
+                        </label>
+                        <Select
+                          value={selectedZoneId}
+                          onValueChange={handleZoneSelect}
+                          disabled={selectedFieldId === "field_unassigned" || filteredZones.length === 0}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={
+                              selectedFieldId === "field_unassigned" 
+                                ? "Select a field first" 
+                                : filteredZones.length === 0 
+                                  ? "No zones in selected field" 
+                                  : "Select a zone"
+                            } />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="zone_unassigned">Unassigned</SelectItem>
+                            {filteredZones.map(zone => (
+                              <SelectItem key={zone.id} value={zone.id}>{zone.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      {/* Location display */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">
+                          Location
+                        </label>
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm text-muted-foreground">
+                            {location ? (
+                              <>
+                                Lat: {location.lat.toFixed(6)}, Lng: {location.lng.toFixed(6)}
+                              </>
+                            ) : editingDevice.position ? (
+                              <>
+                                Lat: {editingDevice.position.lat.toFixed(6)}, Lng: {editingDevice.position.lng.toFixed(6)}
+                              </>
+                            ) : (
+                              'No location selected'
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Drag the device on the map to change location
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <DialogFooter className="flex justify-between">
+                    <Button variant="destructive" onClick={() => handleRemoveDevice(editingDevice?.id || '')}>
+                      Delete Device
+                    </Button>
+                    <div className="space-x-2">
+                      <Button variant="outline" onClick={handleEditDeviceDialogClose}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleUpdateDevice}>
+                        Save Changes
+                      </Button>
+                    </div>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           </CardContent>
         </Card>
@@ -388,7 +630,7 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
       <DeviceList
         devices={filteredDevices}
         handleViewDevice={handleViewDevice}
-        handleEditDevice={handleEditDevice}
+        handleEditDevice={handleDeviceSelectForEdit}
         handleRemoveDevice={handleRemoveDevice}
         setShowAddDeviceDialog={handleAddDeviceClick}
         fields={fields}

@@ -15,7 +15,8 @@ export const useDeviceMarkers = () => {
     zones: Zone[],
     editingDeviceId: string | null = null,
     onLocationChange?: (lat: number, lng: number, fromMapClick?: boolean) => void,
-    isAddingDevice?: boolean
+    isAddingDevice?: boolean,
+    onDeviceSelect?: (deviceId: string) => void
   ) => {
     // Clear existing device markers
     deviceMarkersRef.current.forEach((marker) => {
@@ -64,7 +65,10 @@ export const useDeviceMarkers = () => {
           onLocationChange(device.position.lat, device.position.lng);
         }
         
-        if (device.id !== editingDeviceId) {
+        // Call the device select callback if provided
+        if (onDeviceSelect) {
+          onDeviceSelect(device.id);
+        } else if (device.id !== editingDeviceId) {
           toast({
             title: "Device Selected",
             description: `Selected ${device.name}`,

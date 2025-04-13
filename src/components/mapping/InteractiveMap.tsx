@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { toast } from "@/hooks/use-toast";
 import { DeviceMarker, Field, Zone, GoogleLatLngLiteral } from './types';
@@ -29,6 +30,7 @@ interface InteractiveMapProps {
   activeFieldId?: string | null;
   activeZoneId?: string | null;
   isAddingDevice?: boolean;
+  onDeviceSelect?: (deviceId: string) => void;
 }
 
 const InteractiveMap = forwardRef<any, InteractiveMapProps>(({ 
@@ -42,7 +44,8 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
   onZoneDrawn,
   activeFieldId = null,
   activeZoneId = null,
-  isAddingDevice = false
+  isAddingDevice = false,
+  onDeviceSelect
 }, ref) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<any | null>(null);
@@ -122,7 +125,7 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
         // Render fields, zones and devices after map is fully loaded
         renderFieldsLayer(window.google, mapInstance, fields, activeFieldId, isAddingDevice);
         renderZonesLayer(window.google, mapInstance, zones, activeZoneId, isAddingDevice);
-        renderDeviceMarkers(window.google, mapInstance, devices, fields, zones, editingDeviceId, onLocationChange, isAddingDevice);
+        renderDeviceMarkers(window.google, mapInstance, devices, fields, zones, editingDeviceId, onLocationChange, isAddingDevice, onDeviceSelect);
       });
 
       setMap(mapInstance);
@@ -257,7 +260,8 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
         zones, 
         editingDeviceId, 
         onLocationChange,
-        isAddingDevice
+        isAddingDevice,
+        onDeviceSelect
       );
     }
   }, [devices, editingDeviceId, isAddingDevice]);
@@ -302,6 +306,12 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
       {isAddingDevice && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-background/90 z-10 p-2 rounded-md border border-primary">
           <p className="text-sm text-center font-medium">Click anywhere on the map to place a device</p>
+        </div>
+      )}
+      
+      {editingDeviceId && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-background/90 z-10 p-2 rounded-md border border-primary">
+          <p className="text-sm text-center font-medium">You can drag the device to a new location</p>
         </div>
       )}
       
