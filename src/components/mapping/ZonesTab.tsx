@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import InteractiveMap from '@/components/mapping/InteractiveMap';
@@ -190,19 +189,23 @@ const ZonesTab = forwardRef<any, ZonesTabProps>(({
     }
   }, [activeMode, showAddZoneDialog, selectedFieldId]);
 
-  // Make sure the calculated area is always updated in newZone when it changes
+  // Fix the type error in this useEffect
   useEffect(() => {
     if (calculatedArea && drawnZonePath) {
       const centerPoint = getCenterOfPolygon(drawnZonePath);
       
-      setNewZone(prevZone => ({
-        ...prevZone,
+      // Create a new ZoneData object directly instead of using a function
+      const updatedZone: ZoneData = {
+        ...newZone,
         boundaries: drawnZonePath,
         center: centerPoint,
         area: calculatedArea
-      }));
+      };
+      
+      // Pass the object directly to setNewZone
+      setNewZone(updatedZone);
     }
-  }, [calculatedArea, drawnZonePath]);
+  }, [calculatedArea, drawnZonePath, newZone]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
