@@ -839,4 +839,4 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
 
   // Update device markers when devices prop changes
   useEffect(() => {
-    if (map && mapInitialized
+    if (map && mapInitializedRef.current
