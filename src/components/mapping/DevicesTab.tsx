@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import InteractiveMap from '@/components/mapping/InteractiveMap';
@@ -8,6 +7,13 @@ import DeviceList from './DeviceList';
 import AddDeviceDialog from './AddDeviceDialog';
 import { DeviceMarker, Field, Zone } from './types';
 import { toast } from "@/hooks/use-toast";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface DevicesTabProps {
   hasApiKey: boolean;
@@ -330,10 +336,13 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
       
       <DeviceList
         devices={filteredDevices}
-        onViewDevice={handleViewDevice}
-        onEditDevice={handleEditDevice}
-        onRemoveDevice={handleRemoveDevice}
-        openAddDialog={handleAddDeviceClick}
+        handleViewDevice={handleViewDevice}
+        handleEditDevice={handleEditDevice}
+        handleRemoveDevice={handleRemoveDevice}
+        setShowAddDeviceDialog={handleAddDeviceClick}
+        fields={fields}
+        zones={zones}
+        editingDeviceId={editingDeviceId}
       />
     </div>
   );

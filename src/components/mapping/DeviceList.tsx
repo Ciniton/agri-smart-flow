@@ -2,7 +2,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Thermometer, Droplets, Sun, Edit, Eye } from 'lucide-react';
+import { Thermometer, Droplets, Sun, Edit, Eye, Trash2 } from 'lucide-react';
 import { DeviceMarker, Field, Zone } from './types';
 
 interface DeviceListProps {
@@ -11,7 +11,8 @@ interface DeviceListProps {
   zones?: Zone[];
   handleEditDevice: (deviceId: string) => void;
   handleViewDevice: (device: DeviceMarker) => void;
-  setShowAddDeviceDialog: (show: boolean) => void;
+  handleRemoveDevice: (deviceId: string) => void;
+  setShowAddDeviceDialog: () => void;
   editingDeviceId?: string | null;
 }
 
@@ -21,6 +22,7 @@ const DeviceList: React.FC<DeviceListProps> = ({
   zones = [],
   handleEditDevice,
   handleViewDevice,
+  handleRemoveDevice,
   setShowAddDeviceDialog,
   editingDeviceId = null
 }) => {
@@ -74,11 +76,14 @@ const DeviceList: React.FC<DeviceListProps> = ({
                 <Button variant="ghost" size="sm" onClick={() => handleEditDevice(device.id)}>
                   <Edit className="h-4 w-4" />
                 </Button>
+                <Button variant="ghost" size="sm" onClick={() => handleRemoveDevice(device.id)}>
+                  <Trash2 className="h-4 w-4 text-red-500" />
+                </Button>
               </div>
             </div>
           ))}
           
-          <Button className="w-full" onClick={() => setShowAddDeviceDialog(true)}>
+          <Button className="w-full" onClick={setShowAddDeviceDialog}>
             Add Device
           </Button>
         </div>

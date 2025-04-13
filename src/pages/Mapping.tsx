@@ -16,6 +16,13 @@ interface ZoneData {
   area?: { squareMeters: number; hectares: number };
 }
 
+interface DeviceData {
+  name: string;
+  type: 'sensor' | 'valve' | 'weather-station';
+  fieldId?: string;
+  zoneId?: string;
+}
+
 const Mapping: React.FC = () => {
   const [activeTab, setActiveTab] = useState('fields');
   const [hasApiKey, setHasApiKey] = useState(false);
@@ -33,7 +40,14 @@ const Mapping: React.FC = () => {
     center: undefined,
     area: undefined
   });
-  const [newDevice, setNewDevice] = useState({ name: '', type: 'sensor' as 'sensor' | 'valve' | 'weather-station' });
+  
+  const [newDevice, setNewDevice] = useState<DeviceData>({ 
+    name: '', 
+    type: 'sensor' as 'sensor' | 'valve' | 'weather-station',
+    fieldId: 'field_unassigned',
+    zoneId: 'zone_unassigned'
+  });
+  
   const mapRefs = useRef<{ [key: string]: any }>({
     fields: null,
     zones: null,
@@ -322,7 +336,12 @@ const Mapping: React.FC = () => {
     }
     
     setDevices([...devices, device]);
-    setNewDevice({ name: '', type: 'sensor' });
+    setNewDevice({ 
+      name: '', 
+      type: 'sensor',
+      fieldId: 'field_unassigned',
+      zoneId: 'zone_unassigned'
+    });
     setShowAddDeviceDialog(false);
     
     toast({
