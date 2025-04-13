@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from "@/hooks/use-toast";
@@ -312,6 +311,15 @@ const Mapping: React.FC = () => {
       type: newDevice.type,
       position: { ...location }
     };
+    
+    // Add field and zone IDs if they are selected and valid
+    if (newDevice.fieldId && newDevice.fieldId !== 'field_unassigned') {
+      device.fieldId = newDevice.fieldId;
+    }
+    
+    if (newDevice.zoneId && newDevice.zoneId !== 'zone_unassigned') {
+      device.zoneId = newDevice.zoneId;
+    }
     
     setDevices([...devices, device]);
     setNewDevice({ name: '', type: 'sensor' });

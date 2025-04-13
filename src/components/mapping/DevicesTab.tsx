@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import InteractiveMap from '@/components/mapping/InteractiveMap';
@@ -7,17 +8,13 @@ import DeviceList from './DeviceList';
 import AddDeviceDialog from './AddDeviceDialog';
 import { DeviceMarker, Field, Zone } from './types';
 import { toast } from "@/hooks/use-toast";
-import { Info } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 
 interface DevicesTabProps {
   hasApiKey: boolean;
   activeMode: 'pan' | 'draw' | 'measure';
   devices: DeviceMarker[];
   fields: Field[];
-  zones: Zone[]; // Add zones prop with default empty array
+  zones: Zone[];
   location: { lat: number, lng: number } | null;
   newDevice: { name: string; type: 'sensor' | 'valve' | 'weather-station' };
   showAddDeviceDialog: boolean;
@@ -37,7 +34,7 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
   activeMode,
   devices,
   fields,
-  zones = [], // Add zones prop with default empty array
+  zones,
   location,
   newDevice,
   showAddDeviceDialog,
@@ -51,17 +48,19 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
   handleAddDevice,
   setDevices
 }, ref) => {
-  // Replace "" with "", "none", or a specific unassigned value
-  const [selectedFieldId, setSelectedFieldId] = useState<string>('');
-  const [selectedZoneId, setSelectedZoneId] = useState<string>('');
+  const [selectedFieldId, setSelectedFieldId] = useState<string>("field_unassigned");
+  const [selectedZoneId, setSelectedZoneId] = useState<string>("zone_unassigned");
   const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
   const [selectedField, setSelectedField] = useState<Field | null>(null);
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
   const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null);
-  const [deviceDetails, setDeviceDetails] = useState<DeviceMarker | null>(null);
-  
   const mapRef = useRef<any>(null);
-  
+
+  // Create a list of zones filtered by the selected field
+  const filteredZones = selectedFieldId && selectedFieldId !== "field_unassigned" 
+    ? zones.filter(zone => zone.fieldId === selectedFieldId)
+    : zones;
+
   useImperativeHandle(ref, () => ({
     getUserLocation: () => {
       if (mapRef.current && mapRef.current.getUserLocation) {
@@ -75,58 +74,91 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
       }
     }
   }));
-  
-  const handleStartEditDevice = (deviceId: string) => {
-    setEditingDeviceId(deviceId);
-    handleEditDevice(deviceId);
-  };
-  
-  const handleFinishEdit = () => {
-    if (!editingDeviceId) return;
+
+  // Find selected field and zone objects when IDs change
+  useEffect(() => {
+    if (selectedFieldId && selectedFieldId !== "field_unassigned") {
+      const field = fields.find(f => f.id === selectedFieldId);
+      setSelectedField(field || null);
+    } else {
+      setSelectedField(null);
+    }
+  }, [selectedFieldId, fields]);
+
+  useEffect(() => {
+    if (selectedZoneId && selectedZoneId !== "zone_unassigned") {
+      const zone = zones.find(z => z.id === selectedZoneId);
+      setSelectedZone(zone || null);
+    } else {
+      setSelectedZone(null);
+    }
+  }, [selectedZoneId, zones]);
+
+  // Reset zone selection when field changes
+  useEffect(() => {
+    if (selectedFieldId !== "field_unassigned") {
+      setSelectedZoneId("zone_unassigned");
+    }
+  }, [selectedFieldId]);
+
+  const handleFieldSelect = (fieldId: string) => {
+    setSelectedFieldId(fieldId || "field_unassigned");
+
+    // When the field changes, reset the zone selection
+    setSelectedZoneId("zone_unassigned");
     
-    const editedDevice = devices.find(d => d.id === editingDeviceId);
-    if (editedDevice && location) {
-      // Update the device's position
-      setDevices(prevDevices => 
-        prevDevices.map(d => 
-          d.id === editingDeviceId 
-            ? { ...d, position: { ...location } } 
-            : d
-        )
-      );
-      
+    // If we have selected a valid field, center the map on it
+    if (fieldId && fieldId !== "field_unassigned") {
+      const field = fields.find(f => f.id === fieldId);
+      if (field && field.center && mapRef.current) {
+        mapRef.current.showField(field);
+      }
+    }
+  };
+
+  const handleZoneSelect = (zoneId: string) => {
+    setSelectedZoneId(zoneId || "zone_unassigned");
+    
+    // If we have selected a valid zone, center the map on it
+    if (zoneId && zoneId !== "zone_unassigned") {
+      const zone = zones.find(z => z.id === zoneId);
+      if (zone && zone.center && mapRef.current) {
+        mapRef.current.showZone(zone);
+      }
+    }
+  };
+
+  const handleDeviceNameChange = (name: string) => {
+    setNewDevice({ ...newDevice, name });
+  };
+
+  const handleDeviceTypeChange = (type: 'sensor' | 'valve' | 'weather-station') => {
+    setNewDevice({ ...newDevice, type });
+  };
+
+  const handleAddDeviceClick = () => {
+    if (!location) {
       toast({
-        title: "Device Updated",
-        description: `Position updated for ${editedDevice.name}`,
+        title: "No Location Selected",
+        description: "Please click on the map to select a location for the device.",
+        variant: "destructive"
       });
+      return;
     }
     
-    setEditingDeviceId(null);
-    onSaveMap();
+    // Reset the dialog state
+    setNewDevice({ name: '', type: 'sensor' });
+    setSelectedFieldId("field_unassigned");
+    setSelectedZoneId("zone_unassigned");
+    setShowAddDeviceDialog(true);
   };
 
   const handleViewDevice = (device: DeviceMarker) => {
     setActiveDeviceId(device.id);
-    setDeviceDetails(device);
     
     // Center the map on the device
-    if (mapRef.current) {
-      mapRef.current.centerOnLocation(device.position, 18);
-      
-      // If the device is associated with a zone, show the zone
-      if (device.zoneId) {
-        const zone = zones.find(z => z.id === device.zoneId);
-        if (zone && zone.boundaries) {
-          mapRef.current.showZone(zone);
-        }
-      }
-      // If the device is associated with a field, show the field
-      else if (device.fieldId) {
-        const field = fields.find(f => f.id === device.fieldId);
-        if (field && field.boundaries) {
-          mapRef.current.showField(field);
-        }
-      }
+    if (device.position && mapRef.current) {
+      mapRef.current.centerOnLocation(device.position);
     }
   };
 
@@ -142,129 +174,77 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
     }
   };
 
-  const handleAddDeviceWithAssociations = () => {
-    if (!newDevice.name) {
+  const handleDeviceAddSubmit = () => {
+    // Make sure we have the required data
+    if (!newDevice.name || !location) {
       toast({
-        title: "Validation Error",
-        description: "Please enter a device name.",
+        title: "Missing Information",
+        description: "Please enter a device name and select a location on the map.",
         variant: "destructive"
       });
       return;
     }
     
-    if (!location) {
-      toast({
-        title: "Location Needed",
-        description: "Please click on the map or use the location button to set a device position.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    const device: DeviceMarker = {
+    // Create the new device with field and zone assignments if selected
+    const deviceData = {
       id: `device-${Date.now()}`,
       name: newDevice.name,
       type: newDevice.type,
       position: { ...location },
-      fieldId: selectedFieldId || undefined,
-      zoneId: selectedZoneId || undefined,
-      lastReading: {
-        timestamp: new Date().toISOString(),
-        value: Math.random() * 100 // Mock data for demo
-      }
+      fieldId: selectedFieldId !== "field_unassigned" ? selectedFieldId : undefined,
+      zoneId: selectedZoneId !== "zone_unassigned" ? selectedZoneId : undefined
     };
     
-    setDevices(prev => [...prev, device]);
+    // Add to devices list
+    setDevices([...devices, deviceData]);
+    
+    // Reset form and close dialog
     setNewDevice({ name: '', type: 'sensor' });
-    setSelectedFieldId('');
-    setSelectedZoneId('');
     setShowAddDeviceDialog(false);
     
     toast({
       title: "Device Added",
-      description: `Device "${device.name}" placed at ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`,
+      description: `${deviceData.name} has been added to your map.`,
     });
   };
 
-  // When a field is selected in the dropdown, center the map on that field
-  useEffect(() => {
-    if (selectedFieldId && mapRef.current) {
-      const field = fields.find(f => f.id === selectedFieldId);
-      if (field && field.center) {
-        mapRef.current.centerOnLocation(field.center, 16);
-        setSelectedField(field);
-        
-        // Show the field boundaries
-        if (field.boundaries) {
-          mapRef.current.showField(field);
-        }
-        
-        // Filter zones to only show those for this field
-        setSelectedZoneId('');
-        
-        toast({
-          title: "Field Selected",
-          description: `Centered on ${field.name}. Select a zone or click on the map to place your device.`,
-        });
-      }
-    }
-  }, [selectedFieldId, fields]);
+  const handleRemoveDevice = (deviceId: string) => {
+    setDevices(devices.filter(device => device.id !== deviceId));
+    
+    toast({
+      title: "Device Removed",
+      description: "The device has been removed from your map.",
+    });
+  };
 
-  // When a zone is selected in the dropdown, center the map on that zone
-  useEffect(() => {
-    if (selectedZoneId && mapRef.current) {
-      const zone = zones.find(z => z.id === selectedZoneId);
-      if (zone) {
-        setSelectedZone(zone);
-        
-        // Show the zone boundaries
-        if (zone.boundaries) {
-          mapRef.current.showZone(zone);
-        }
-        
-        toast({
-          title: "Zone Selected",
-          description: `Centered on ${zone.name}. Click on the map to place your device.`,
-        });
-      }
-    }
-  }, [selectedZoneId, zones]);
-
-  // Filter zones based on selected field
-  const filteredZones = selectedFieldId 
-    ? zones.filter(zone => zone.fieldId === selectedFieldId)
-    : zones;
+  // Filter devices based on selections
+  const filteredDevices = devices.filter(device => {
+    // If no field is selected, show all devices
+    if (selectedFieldId === "field_unassigned") return true;
+    
+    // If a field is selected but no zone, show devices in that field
+    if (selectedZoneId === "zone_unassigned") return device.fieldId === selectedFieldId;
+    
+    // If both field and zone are selected, show devices in that zone
+    return device.zoneId === selectedZoneId;
+  });
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
       <div className="lg:col-span-3">
-        <Card className="shadow-md border-primary/10 hover:shadow-lg transition-shadow duration-300">
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center">
-              Device Placement
-              {editingDeviceId && (
-                <span className="ml-2 text-sm text-primary opacity-80">
-                  (Editing device - drag to reposition)
-                </span>
-              )}
-              {selectedZone && !editingDeviceId && (
-                <span className="ml-2 text-sm text-primary opacity-80">
-                  (Zone: {selectedZone.name})
-                </span>
-              )}
-              {selectedField && !selectedZone && !editingDeviceId && (
-                <span className="ml-2 text-sm text-primary opacity-80">
-                  (Field: {selectedField.name})
-                </span>
-              )}
-            </CardTitle>
+            <CardTitle>Device Placement</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="fieldSelect">Select Field:</Label>
-                <Select value={selectedFieldId} onValueChange={setSelectedFieldId}>
-                  <SelectTrigger id="fieldSelect">
+                <label className="block text-sm font-medium mb-1">Filter by Field</label>
+                <Select
+                  value={selectedFieldId}
+                  onValueChange={handleFieldSelect}
+                >
+                  <SelectTrigger>
                     <SelectValue placeholder="Select a field" />
                   </SelectTrigger>
                   <SelectContent>
@@ -277,13 +257,13 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
               </div>
               
               <div>
-                <Label htmlFor="zoneSelect">Select Zone:</Label>
-                <Select 
-                  value={selectedZoneId} 
-                  onValueChange={setSelectedZoneId}
-                  disabled={filteredZones.length === 0}
+                <label className="block text-sm font-medium mb-1">Filter by Zone</label>
+                <Select
+                  value={selectedZoneId}
+                  onValueChange={handleZoneSelect}
+                  disabled={selectedFieldId === "field_unassigned" || filteredZones.length === 0}
                 >
-                  <SelectTrigger id="zoneSelect">
+                  <SelectTrigger>
                     <SelectValue placeholder={filteredZones.length === 0 ? "No zones in selected field" : "Select a zone"} />
                   </SelectTrigger>
                   <SelectContent>
@@ -295,173 +275,65 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
                 </Select>
               </div>
             </div>
-          
+            
             {hasApiKey ? (
               <InteractiveMap 
                 ref={mapRef}
                 onLocationChange={onLocationChange} 
                 mode={activeMode} 
-                editingDeviceId={editingDeviceId} 
                 devices={devices}
                 fields={fields}
                 zones={zones}
+                editingDeviceId={editingDeviceId}
+                activeFieldId={selectedFieldId !== "field_unassigned" ? selectedFieldId : null}
+                activeZoneId={selectedZoneId !== "zone_unassigned" ? selectedZoneId : null}
               />
             ) : (
-              <MapPlaceholder />
+              <MapPlaceholder>
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/50 rounded">
+                  <h3 className="text-lg font-medium">Map Not Available</h3>
+                  <p className="text-muted-foreground mt-1">Please add a Google Maps API key in settings</p>
+                </div>
+              </MapPlaceholder>
             )}
             
-            <div className="flex justify-between mt-4">
-              <div className="flex space-x-2">
-                <MapToolbar
-                  activeMode={activeMode}
-                  onModeSelect={onModeSelect}
-                  onGetUserLocation={handleGetLocation}
-                  onSave={editingDeviceId ? handleFinishEdit : onSaveMap}
-                  showImportExport={false}
-                  saveButtonText={editingDeviceId ? "Save Device Position" : "Save Devices"}
-                />
-                <AddDeviceDialog
-                  open={showAddDeviceDialog}
-                  onOpenChange={setShowAddDeviceDialog}
-                  deviceName={newDevice.name}
-                  deviceType={newDevice.type}
-                  location={location}
-                  onDeviceNameChange={(name) => setNewDevice({...newDevice, name})}
-                  onDeviceTypeChange={(type) => setNewDevice({...newDevice, type})}
-                  onAddDevice={handleAddDeviceWithAssociations}
-                  fields={fields}
-                  selectedFieldId={selectedFieldId}
-                  onFieldSelect={setSelectedFieldId}
-                  zones={zones}
-                  selectedZoneId={selectedZoneId}
-                  onZoneSelect={setSelectedZoneId}
-                  filteredZones={filteredZones}
-                />
-              </div>
+            <div className="flex justify-between items-center mt-4">
+              <MapToolbar
+                activeMode={activeMode}
+                onModeSelect={onModeSelect}
+                onGetUserLocation={handleGetLocation}
+                onSave={onSaveMap}
+                showImportExport={false}
+              />
+              
+              <AddDeviceDialog
+                open={showAddDeviceDialog}
+                onOpenChange={setShowAddDeviceDialog}
+                deviceName={newDevice.name}
+                deviceType={newDevice.type}
+                location={location}
+                onDeviceNameChange={handleDeviceNameChange}
+                onDeviceTypeChange={handleDeviceTypeChange}
+                onAddDevice={handleDeviceAddSubmit}
+                fields={fields}
+                selectedFieldId={selectedFieldId}
+                onFieldSelect={handleFieldSelect}
+                zones={zones}
+                selectedZoneId={selectedZoneId}
+                onZoneSelect={handleZoneSelect}
+                filteredZones={filteredZones}
+              />
             </div>
-
-            {deviceDetails && (
-              <div className="mt-4 p-4 border rounded-md bg-muted/50">
-                <h3 className="font-medium text-lg mb-2 flex items-center">
-                  <Info className="mr-2 h-5 w-5 text-primary" />
-                  Device Information
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Name</p>
-                    <p className="font-medium">{deviceDetails.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Type</p>
-                    <p className="font-medium capitalize">{deviceDetails.type.replace('-', ' ')}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Location</p>
-                    <p className="font-medium">
-                      {deviceDetails.position.lat.toFixed(6)}, {deviceDetails.position.lng.toFixed(6)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Field</p>
-                    <p className="font-medium">
-                      {deviceDetails.fieldId 
-                        ? fields.find(f => f.id === deviceDetails.fieldId)?.name || "Unknown Field"
-                        : "Unassigned"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Zone</p>
-                    <p className="font-medium">
-                      {deviceDetails.zoneId 
-                        ? zones.find(z => z.id === deviceDetails.zoneId)?.name || "Unknown Zone"
-                        : "Unassigned"}
-                    </p>
-                  </div>
-                  
-                  {deviceDetails.lastReading && (
-                    <>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Last Reading</p>
-                        <p className="font-medium">
-                          {deviceDetails.type === 'sensor' 
-                            ? `${(deviceDetails.lastReading.value).toFixed(1)}% moisture`
-                            : deviceDetails.type === 'weather-station'
-                              ? `${(deviceDetails.lastReading.value / 3).toFixed(1)}°C, ${(deviceDetails.lastReading.value).toFixed(0)}% humidity`
-                              : `Status: ${deviceDetails.lastReading.value > 50 ? 'Active' : 'Inactive'}`
-                          }
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Last Update</p>
-                        <p className="font-medium">
-                          {new Date(deviceDetails.lastReading.timestamp).toLocaleString()}
-                        </p>
-                      </div>
-                    </>
-                  )}
-                </div>
-                
-                <div className="mt-4 flex justify-end space-x-2">
-                  {deviceDetails.type === 'valve' && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => {
-                        toast({
-                          title: "Valve Toggled",
-                          description: `Valve ${deviceDetails.name} has been ${deviceDetails.lastReading?.value > 50 ? 'closed' : 'opened'}.`,
-                        });
-                        
-                        // Update the valve's status
-                        setDevices(prev => 
-                          prev.map(d => 
-                            d.id === deviceDetails.id 
-                              ? { 
-                                  ...d, 
-                                  lastReading: { 
-                                    ...d.lastReading, 
-                                    value: d.lastReading?.value && d.lastReading.value > 50 ? 0 : 100,
-                                    timestamp: new Date().toISOString()
-                                  } 
-                                } 
-                              : d
-                          )
-                        );
-                        
-                        // Update the deviceDetails to reflect the change
-                        setDeviceDetails(prev => 
-                          prev ? {
-                            ...prev,
-                            lastReading: {
-                              ...prev.lastReading,
-                              value: prev.lastReading?.value && prev.lastReading.value > 50 ? 0 : 100,
-                              timestamp: new Date().toISOString()
-                            }
-                          } : null
-                        );
-                      }}
-                    >
-                      {deviceDetails.lastReading?.value > 50 ? 'Close Valve' : 'Open Valve'}
-                    </Button>
-                  )}
-                  <Button variant="outline" size="sm" onClick={() => setDeviceDetails(null)}>
-                    Close
-                  </Button>
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
       
       <DeviceList
-        devices={devices}
-        fields={fields}
-        zones={zones}
-        handleEditDevice={handleStartEditDevice}
-        setShowAddDeviceDialog={setShowAddDeviceDialog}
-        editingDeviceId={editingDeviceId}
-        handleViewDevice={handleViewDevice}
+        devices={filteredDevices}
+        onViewDevice={handleViewDevice}
+        onEditDevice={handleEditDevice}
+        onRemoveDevice={handleRemoveDevice}
+        openAddDialog={handleAddDeviceClick}
       />
     </div>
   );
