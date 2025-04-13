@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { Field } from './types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface AddZoneDialogProps {
   open: boolean;
@@ -26,6 +27,7 @@ interface AddZoneDialogProps {
   onIrrigationTypeChange: (type: 'low' | 'medium' | 'high') => void;
   onAddZone: () => void;
   fields: Field[];
+  calculatedArea?: { squareMeters: number; hectares: number } | null;
 }
 
 const AddZoneDialog: React.FC<AddZoneDialogProps> = ({
@@ -39,6 +41,7 @@ const AddZoneDialog: React.FC<AddZoneDialogProps> = ({
   onIrrigationTypeChange,
   onAddZone,
   fields,
+  calculatedArea = null,
 }) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -50,9 +53,11 @@ const AddZoneDialog: React.FC<AddZoneDialogProps> = ({
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add New Zone</DialogTitle>
+          <DialogTitle>Add New Irrigation Zone</DialogTitle>
           <DialogDescription>
-            Enter zone details and then draw its boundaries on the map.
+            {calculatedArea 
+              ? `Enter zone details for the drawn zone (${calculatedArea.squareMeters.toLocaleString()} m² / ${calculatedArea.hectares.toFixed(2)} ha).`
+              : "Enter zone details and then draw its boundaries on the map."}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -72,40 +77,60 @@ const AddZoneDialog: React.FC<AddZoneDialogProps> = ({
             <Label htmlFor="zoneField" className="text-right">
               Field
             </Label>
-            <select
-              id="zoneField"
-              className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            <Select
               value={fieldId}
-              onChange={(e) => onFieldIdChange(e.target.value)}
+              onValueChange={onFieldIdChange}
+              disabled={calculatedArea !== null}
             >
-              <option value="" disabled>Select a field</option>
-              {fields.map(field => (
-                <option key={field.id} value={field.id}>{field.name}</option>
-              ))}
-            </select>
+              <SelectTrigger id="zoneField" className="col-span-3">
+                <SelectValue placeholder="Select a field" />
+              </SelectTrigger>
+              <SelectContent>
+                {fields.map(field => (
+                  <SelectItem key={field.id} value={field.id}>{field.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="zoneType" className="text-right">
               Irrigation Type
             </Label>
-            <select
-              id="zoneType"
-              className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            <Select
               value={irrigationType}
-              onChange={(e) => onIrrigationTypeChange(e.target.value as 'low' | 'medium' | 'high')}
+              onValueChange={(value) => onIrrigationTypeChange(value as 'low' | 'medium' | 'high')}
             >
-              <option value="low">Low Irrigation</option>
-              <option value="medium">Medium Irrigation</option>
-              <option value="high">High Irrigation</option>
-            </select>
+              <SelectTrigger id="zoneType" className="col-span-3">
+                <SelectValue placeholder="Select irrigation type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">Low Irrigation</SelectItem>
+                <SelectItem value="medium">Medium Irrigation</SelectItem>
+                <SelectItem value="high">High Irrigation</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+
+          {calculatedArea && (
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">
+                Zone Area
+              </Label>
+              <div className="col-span-3">
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium">{calculatedArea.squareMeters.toLocaleString()} m²</span>
+                  <span className="text-xs text-muted-foreground">{calculatedArea.hectares.toFixed(2)} hectares</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button onClick={onAddZone}>
-            Add Zone
+            {calculatedArea ? "Save Zone" : "Add Zone"}
           </Button>
         </DialogFooter>
       </DialogContent>

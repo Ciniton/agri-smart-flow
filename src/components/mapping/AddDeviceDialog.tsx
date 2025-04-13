@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { MapPin } from 'lucide-react';
-import { Field } from './types';
+import { Field, Zone } from './types';
 import { 
   Select,
   SelectContent,
@@ -34,6 +34,10 @@ interface AddDeviceDialogProps {
   fields?: Field[];
   selectedFieldId?: string;
   onFieldSelect?: (fieldId: string) => void;
+  zones?: Zone[];
+  selectedZoneId?: string;
+  onZoneSelect?: (zoneId: string) => void;
+  filteredZones?: Zone[];
 }
 
 const AddDeviceDialog: React.FC<AddDeviceDialogProps> = ({
@@ -47,7 +51,11 @@ const AddDeviceDialog: React.FC<AddDeviceDialogProps> = ({
   onAddDevice,
   fields = [],
   selectedFieldId = '',
-  onFieldSelect = () => {}
+  onFieldSelect = () => {},
+  zones = [],
+  selectedZoneId = '',
+  onZoneSelect = () => {},
+  filteredZones = zones
 }) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -115,6 +123,29 @@ const AddDeviceDialog: React.FC<AddDeviceDialogProps> = ({
                 {fields.map(field => (
                   <SelectItem key={field.id} value={field.id}>
                     {field.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="zoneSelect" className="text-right">
+              Assign to Zone
+            </Label>
+            <Select
+              value={selectedZoneId}
+              onValueChange={onZoneSelect}
+              disabled={filteredZones.length === 0}
+            >
+              <SelectTrigger className="col-span-3" id="zoneSelect">
+                <SelectValue placeholder={filteredZones.length === 0 ? "No zones in selected field" : "Select a zone"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                {filteredZones.map(zone => (
+                  <SelectItem key={zone.id} value={zone.id}>
+                    {zone.name}
                   </SelectItem>
                 ))}
               </SelectContent>

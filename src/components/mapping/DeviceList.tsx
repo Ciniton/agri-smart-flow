@@ -1,118 +1,84 @@
 
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Smartphone, Edit, CheckCircle, Thermometer, Droplet, Wind } from 'lucide-react';
-import { DeviceMarker, Field } from './types';
-import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Thermometer, Droplets, Sun, Edit, Eye } from 'lucide-react';
+import { DeviceMarker, Field, Zone } from './types';
 
 interface DeviceListProps {
   devices: DeviceMarker[];
   fields: Field[];
+  zones?: Zone[];
   handleEditDevice: (deviceId: string) => void;
+  handleViewDevice: (device: DeviceMarker) => void;
   setShowAddDeviceDialog: (show: boolean) => void;
   editingDeviceId?: string | null;
-  handleViewDevice?: (device: DeviceMarker) => void;
 }
 
 const DeviceList: React.FC<DeviceListProps> = ({
   devices,
   fields,
+  zones = [],
   handleEditDevice,
+  handleViewDevice,
   setShowAddDeviceDialog,
-  editingDeviceId = null,
-  handleViewDevice
+  editingDeviceId = null
 }) => {
-  const getDeviceTypeIcon = (type: string) => {
-    const commonClasses = "mr-2 h-4 w-4";
+  // Get device icon based on type
+  const getDeviceIcon = (type: string) => {
     switch (type) {
       case 'sensor':
-        return <Droplet className={`${commonClasses} text-blue-500`} />;
+        return <Thermometer className="h-4 w-4 text-blue-500" />;
       case 'valve':
-        return <Smartphone className={`${commonClasses} text-green-500`} />;
+        return <Droplets className="h-4 w-4 text-green-500" />;
       case 'weather-station':
-        return <Wind className={`${commonClasses} text-yellow-500`} />;
+        return <Sun className="h-4 w-4 text-amber-500" />;
       default:
-        return <Smartphone className={`${commonClasses} text-gray-500`} />;
+        return <Thermometer className="h-4 w-4" />;
     }
   };
 
-  // Find field name from fieldId
-  const getFieldName = (fieldId?: string) => {
-    if (!fieldId) return "Unassigned";
-    const field = fields.find(f => f.id === fieldId);
-    return field ? field.name : "Unknown Field";
-  };
-
   return (
-    <Card className="h-full shadow-md border-primary/10 hover:shadow-lg transition-shadow duration-300">
+    <Card className="h-full">
       <CardHeader>
         <CardTitle>Devices</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {devices.length === 0 ? (
-            <div className="text-center p-4 border-2 border-dashed border-muted-foreground/20 rounded-md">
-              <p className="text-muted-foreground">No devices yet. Use the button below to add your first device.</p>
-            </div>
-          ) : (
-            devices.map((device) => (
-              <div 
-                key={device.id} 
-                className={`flex items-center justify-between p-3 rounded cursor-pointer transition-all ${
-                  device.id === editingDeviceId 
-                    ? "bg-primary/10 border border-primary/30" 
-                    : "bg-muted hover:bg-accent"
-                }`}
-                onClick={() => handleViewDevice && handleViewDevice(device)}
-              >
-                <div className="flex items-center">
-                  {getDeviceTypeIcon(device.type)}
-                  <div>
-                    <span className="font-medium">{device.name}</span>
-                    <div className="flex flex-col space-y-1 mt-1">
-                      <p className="text-xs text-muted-foreground">
-                        {device.position.lat.toFixed(4)}, {device.position.lng.toFixed(4)}
-                      </p>
-                      <Badge variant="outline" className="text-xs w-fit">
-                        {getFieldName(device.fieldId)}
-                      </Badge>
-                    </div>
-                  </div>
+          {devices.map((device) => (
+            <div 
+              key={device.id} 
+              className={`flex items-center justify-between p-3 rounded hover:bg-accent cursor-pointer ${
+                editingDeviceId === device.id ? 'bg-primary/10 border border-primary' : 'bg-muted'
+              }`}
+            >
+              <div className="flex items-center flex-grow" onClick={() => handleViewDevice(device)}>
+                {getDeviceIcon(device.type)}
+                <div className="ml-2 flex flex-col">
+                  <span className="font-medium">
+                    {device.name}
+                    {editingDeviceId === device.id && ' (Editing)'}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {device.fieldId && fields.find(f => f.id === device.fieldId)?.name}
+                    {device.zoneId && zones.find(z => z.id === device.zoneId) && 
+                      ` → ${zones.find(z => z.id === device.zoneId)?.name}`
+                    }
+                  </span>
                 </div>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEditDevice(device.id);
-                        }}
-                        className={device.id === editingDeviceId ? "text-primary" : ""}
-                      >
-                        {device.id === editingDeviceId 
-                          ? <CheckCircle className="h-4 w-4" /> 
-                          : <Edit className="h-4 w-4" />}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{device.id === editingDeviceId ? "Save position" : "Edit device"}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
               </div>
-            ))
-          )}
+              <div className="flex space-x-1">
+                <Button variant="ghost" size="sm" onClick={() => handleViewDevice(device)}>
+                  <Eye className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => handleEditDevice(device.id)}>
+                  <Edit className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
           
-          <Button 
-            className="w-full group shadow-sm hover:shadow transition-all" 
-            onClick={() => setShowAddDeviceDialog(true)}
-            disabled={!!editingDeviceId}
-          >
-            <Plus className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />
+          <Button className="w-full" onClick={() => setShowAddDeviceDialog(true)}>
             Add Device
           </Button>
         </div>

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from "@/hooks/use-toast";
-import { Field, Zone, DeviceMarker } from '@/components/mapping/types';
+import { Field, Zone, DeviceMarker, GoogleLatLngLiteral } from '@/components/mapping/types';
 import FieldsTab from '@/components/mapping/FieldsTab';
 import ZonesTab from '@/components/mapping/ZonesTab';
 import DevicesTab from '@/components/mapping/DevicesTab';
@@ -17,7 +17,14 @@ const Mapping: React.FC = () => {
   const [showAddZoneDialog, setShowAddZoneDialog] = useState(false);
   const [showAddDeviceDialog, setShowAddDeviceDialog] = useState(false);
   const [newField, setNewField] = useState({ name: '', area: '' });
-  const [newZone, setNewZone] = useState({ name: '', fieldId: '', irrigationType: 'medium' as 'low' | 'medium' | 'high' });
+  const [newZone, setNewZone] = useState({ 
+    name: '', 
+    fieldId: '', 
+    irrigationType: 'medium' as 'low' | 'medium' | 'high',
+    boundaries: undefined as GoogleLatLngLiteral[] | undefined,
+    center: undefined as { lat: number, lng: number } | undefined,
+    area: undefined as { squareMeters: number; hectares: number } | undefined
+  });
   const [newDevice, setNewDevice] = useState({ name: '', type: 'sensor' as 'sensor' | 'valve' | 'weather-station' });
   const mapRefs = useRef<{ [key: string]: any }>({
     fields: null,
@@ -26,7 +33,7 @@ const Mapping: React.FC = () => {
     soil: null
   });
   
-  // Use localStorage to persist field and device data
+  // Use localStorage to persist field, zone, and device data
   const [fields, setFields] = useState<Field[]>(() => {
     const savedFields = localStorage.getItem('fields');
     return savedFields ? JSON.parse(savedFields) : [
@@ -49,9 +56,9 @@ const Mapping: React.FC = () => {
   const [devices, setDevices] = useState<DeviceMarker[]>(() => {
     const savedDevices = localStorage.getItem('devices');
     return savedDevices ? JSON.parse(savedDevices) : [
-      { id: '1', name: 'Soil Moisture Sensor 1', type: 'sensor', position: { lat: 40.7128, lng: -74.0060 }, fieldId: 'f1' },
-      { id: '2', name: 'Valve Controller 1', type: 'valve', position: { lat: 40.7135, lng: -74.0050 }, fieldId: 'f1' },
-      { id: '3', name: 'Weather Station 1', type: 'weather-station', position: { lat: 40.7140, lng: -74.0065 }, fieldId: 'f2' }
+      { id: '1', name: 'Soil Moisture Sensor 1', type: 'sensor', position: { lat: 40.7128, lng: -74.0060 }, fieldId: 'f1', zoneId: 'z1' },
+      { id: '2', name: 'Valve Controller 1', type: 'valve', position: { lat: 40.7135, lng: -74.0050 }, fieldId: 'f1', zoneId: 'z1' },
+      { id: '3', name: 'Weather Station 1', type: 'weather-station', position: { lat: 40.7140, lng: -74.0065 }, fieldId: 'f2', zoneId: 'z2' }
     ];
   });
   
@@ -232,20 +239,30 @@ const Mapping: React.FC = () => {
       name: newZone.name,
       fieldId: newZone.fieldId,
       irrigationType: newZone.irrigationType,
+      boundaries: newZone.boundaries,
+      center: newZone.center,
+      area: newZone.area,
       lastModified: new Date().toISOString().split('T')[0]
     };
     
     setZones([...zones, zone]);
-    setNewZone({ name: '', fieldId: '', irrigationType: 'medium' });
+    setNewZone({ 
+      name: '', 
+      fieldId: '', 
+      irrigationType: 'medium',
+      boundaries: undefined,
+      center: undefined,
+      area: undefined
+    });
     setShowAddZoneDialog(false);
     
     toast({
       title: "Zone Added",
-      description: `Zone "${zone.name}" has been added. You can now draw its boundaries on the map.`,
+      description: `Zone "${zone.name}" has been added with ${zone.area ? `an area of ${zone.area.hectares.toFixed(2)} hectares` : 'no area information'}.`,
     });
     
-    // Set mode to draw automatically
-    handleModeSelect('draw');
+    // Set mode to pan
+    handleModeSelect('pan');
   };
   
   const handleEditZone = (zoneId: string) => {
@@ -386,6 +403,7 @@ const Mapping: React.FC = () => {
             activeMode={activeMode}
             devices={devices}
             fields={fields}
+            zones={zones}
             location={location}
             newDevice={newDevice}
             showAddDeviceDialog={showAddDeviceDialog}

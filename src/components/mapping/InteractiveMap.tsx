@@ -1,10 +1,9 @@
-
 import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { toast } from "@/hooks/use-toast";
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ZoomIn, ZoomOut, Navigation, Pencil, Ruler, Layers } from 'lucide-react';
-import { DeviceMarker, Field } from './types';
+import { DeviceMarker, Field, Zone, GoogleLatLngLiteral } from './types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface InteractiveMapProps {
@@ -13,8 +12,11 @@ interface InteractiveMapProps {
   editingDeviceId?: string | null;
   devices?: DeviceMarker[];
   fields?: Field[];
-  onFieldDrawn?: (path: google.maps.LatLngLiteral[], area: { squareMeters: number; hectares: number }) => void;
+  zones?: Zone[];
+  onFieldDrawn?: (path: GoogleLatLngLiteral[], area: { squareMeters: number; hectares: number }) => void;
+  onZoneDrawn?: (path: GoogleLatLngLiteral[], area: { squareMeters: number; hectares: number }) => void;
   activeFieldId?: string | null;
+  activeZoneId?: string | null;
 }
 
 const InteractiveMap = forwardRef<any, InteractiveMapProps>(({ 
@@ -23,8 +25,11 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
   editingDeviceId = null,
   devices = [],
   fields = [],
+  zones = [],
   onFieldDrawn,
-  activeFieldId = null
+  onZoneDrawn,
+  activeFieldId = null,
+  activeZoneId = null
 }, ref) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<any | null>(null);
@@ -43,6 +48,7 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
   const mapInitializedRef = useRef<boolean>(false);
   const scriptLoadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const fieldsLayerRef = useRef<Map<string, any>>(new Map());
+  const zonesLayerRef = useRef<Map<string, any>>(new Map());
   const activePolygonRef = useRef<any | null>(null);
 
   const loadGoogleMapsScript = () => {
@@ -118,7 +124,7 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
         zoomControl: false, // We'll use our custom zoom controls
       });
 
-      // Initialize the DrawingManager
+      // Initialize the DrawingManager with updated options
       const drawingManager = new window.google.maps.drawing.DrawingManager({
         drawingMode: null,
         drawingControl: false,
@@ -144,7 +150,7 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
       drawingManager.setMap(mapInstance);
       drawingManagerRef.current = drawingManager;
 
-      // Listen for polygon complete event
+      // Listen for polygon complete event - updated to handle both field and zone drawing
       window.google.maps.event.addListener(drawingManager, 'polygoncomplete', (polygon) => {
         // Calculate the area of the polygon
         const path = polygon.getPath().getArray();
@@ -163,11 +169,28 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
         }
         activePolygonRef.current = polygon;
         
-        // Notify parent component about the drawn field
-        if (onFieldDrawn) {
+        // Notify parent component about the drawn polygon - could be field or zone
+        if (activeFieldId && onZoneDrawn) {
+          // If a field is active, we're drawing a zone
+          onZoneDrawn(pathCoordinates, {
+            squareMeters: areaInSquareMeters,
+            hectares: areaInHectares
+          });
+          
+          toast({
+            title: "Irrigation Zone Drawn",
+            description: `Zone area: ${areaInSquareMeters.toLocaleString()} m² (${areaInHectares.toFixed(2)} hectares)`,
+          });
+        } else if (onFieldDrawn) {
+          // Otherwise, we're drawing a field
           onFieldDrawn(pathCoordinates, {
             squareMeters: areaInSquareMeters,
             hectares: areaInHectares
+          });
+          
+          toast({
+            title: "Field Drawn",
+            description: `Field area: ${areaInSquareMeters.toLocaleString()} m² (${areaInHectares.toFixed(2)} hectares)`,
           });
         }
         
@@ -249,8 +272,9 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
         setIsLoading(false);
         mapInitializedRef.current = true;
         
-        // Render fields and devices after map is fully loaded
+        // Render fields, zones and devices after map is fully loaded
         renderFieldsLayer(mapInstance);
+        renderZonesLayer(mapInstance);
         renderDeviceMarkers(mapInstance);
       });
 
@@ -340,6 +364,86 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
     });
   };
 
+  // Add a new function to render irrigation zones
+  const renderZonesLayer = (mapInstance: any) => {
+    // Clear existing zone layers
+    zonesLayerRef.current.forEach((zone) => {
+      zone.setMap(null);
+    });
+    zonesLayerRef.current.clear();
+
+    // Add polygons for each zone that has boundaries
+    zones.forEach(zone => {
+      if (zone.boundaries && zone.boundaries.length > 0) {
+        const isActive = zone.id === activeZoneId;
+        
+        // Use different colors based on irrigation type
+        let zoneColor = '#3B82F6'; // Default blue
+        if (zone.irrigationType === 'low') {
+          zoneColor = '#93C5FD'; // Light blue
+        } else if (zone.irrigationType === 'high') {
+          zoneColor = '#1D4ED8'; // Dark blue
+        }
+        
+        const zonePolygon = new window.google.maps.Polygon({
+          paths: zone.boundaries,
+          strokeColor: isActive ? '#22C55E' : zoneColor,
+          strokeOpacity: 0.8,
+          strokeWeight: isActive ? 3 : 2,
+          fillColor: isActive ? '#22C55E' : zoneColor,
+          fillOpacity: isActive ? 0.35 : 0.25,
+          map: mapInstance,
+          editable: false
+        });
+        
+        // Add click listener to select the zone
+        window.google.maps.event.addListener(zonePolygon, 'click', () => {
+          // Highlight this zone
+          zonePolygon.setOptions({
+            strokeColor: '#22C55E',
+            strokeWeight: 3,
+            fillColor: '#22C55E',
+            fillOpacity: 0.35
+          });
+          
+          // Center on the zone
+          const bounds = new window.google.maps.LatLngBounds();
+          zone.boundaries?.forEach(coord => {
+            bounds.extend(coord);
+          });
+          mapInstance.fitBounds(bounds);
+          
+          toast({
+            title: "Irrigation Zone Selected",
+            description: `Selected ${zone.name}`,
+          });
+        });
+        
+        // Add label for the zone
+        if (zone.center) {
+          const label = new window.google.maps.Marker({
+            position: zone.center,
+            map: mapInstance,
+            label: {
+              text: zone.name,
+              color: "#FFFFFF",
+              fontWeight: "bold"
+            },
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 0, // Makes the marker invisible
+            }
+          });
+          
+          zonesLayerRef.current.set(`${zone.id}-label`, label);
+        }
+        
+        zonesLayerRef.current.set(zone.id, zonePolygon);
+      }
+    });
+  };
+
+  // Update renderDeviceMarkers to show zone association
   const renderDeviceMarkers = (mapInstance: any) => {
     // Clear existing device markers
     deviceMarkersRef.current.forEach((marker) => {
@@ -396,7 +500,7 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
         }
       });
 
-      // Add info window with device details
+      // Add info window with enhanced device details including zone information
       const infoWindowContent = `
         <div style="padding: 8px; max-width: 200px;">
           <h3 style="margin: 0 0 8px; font-weight: 500;">${device.name}</h3>
@@ -409,6 +513,11 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
           ${device.fieldId ? 
             `<p style="margin: 4px 0; font-size: 12px; color: #666;">
               <strong>Field:</strong> ${fields.find(f => f.id === device.fieldId)?.name || 'Unknown'}
+            </p>` : ''
+          }
+          ${device.zoneId ? 
+            `<p style="margin: 4px 0; font-size: 12px; color: #666;">
+              <strong>Zone:</strong> ${zones.find(z => z.id === device.zoneId)?.name || 'Unknown'}
             </p>` : ''
           }
         </div>
@@ -680,6 +789,23 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
     });
   };
 
+  // Add new function to toggle zones layer
+  const toggleZonesLayer = () => {
+    if (!map) return;
+    
+    const isLayerVisible = zonesLayerRef.current.size > 0 && 
+      Array.from(zonesLayerRef.current.values())[0].getMap() !== null;
+    
+    zonesLayerRef.current.forEach((layer) => {
+      layer.setMap(isLayerVisible ? null : map);
+    });
+    
+    toast({
+      title: `Irrigation Zones ${isLayerVisible ? 'Hidden' : 'Shown'}`,
+      description: `All irrigation zone boundaries are now ${isLayerVisible ? 'hidden' : 'visible'} on the map`,
+    });
+  };
+
   // Clean up function for timeouts and intervals
   useEffect(() => {
     return () => {
@@ -713,145 +839,4 @@ const InteractiveMap = forwardRef<any, InteractiveMapProps>(({
 
   // Update device markers when devices prop changes
   useEffect(() => {
-    if (map && mapInitializedRef.current) {
-      renderDeviceMarkers(map);
-    }
-  }, [devices, editingDeviceId]);
-
-  // Update fields layer when fields prop changes
-  useEffect(() => {
-    if (map && mapInitializedRef.current) {
-      renderFieldsLayer(map);
-    }
-  }, [fields, activeFieldId]);
-
-  // Expose methods via ref
-  useImperativeHandle(ref, () => ({
-    getUserLocation,
-    getMap: () => map,
-    isInitialized: () => mapInitializedRef.current,
-    centerOnLocation,
-    showField
-  }));
-
-  return (
-    <Card className="w-full h-full">
-      <CardContent className="p-0 relative overflow-hidden rounded-md">
-        {isLoading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted z-10">
-            <div className="flex items-center justify-center mb-4">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-            </div>
-            <div className="text-center max-w-xs px-4">
-              <h3 className="font-medium mb-2">Loading Map</h3>
-              <div className="w-full bg-gray-200 rounded-full h-2.5 mb-4">
-                <div className="bg-primary h-2.5 rounded-full" style={{ width: `${loadingProgress}%` }}></div>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                This may take a moment on slower connections
-              </p>
-            </div>
-          </div>
-        )}
-        
-        {error && (
-          <div className="absolute inset-0 flex items-center justify-center bg-muted z-10 p-6">
-            <div className="text-center max-w-md">
-              <p className="text-destructive font-medium mb-4">{error}</p>
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground mb-4">
-                  If you're having trouble loading the map, try these solutions:
-                </p>
-                <ul className="text-sm text-left list-disc list-inside mb-4">
-                  <li>Check your internet connection</li>
-                  <li>Verify your Google Maps API key is valid</li>
-                  <li>Try refreshing the page</li>
-                </ul>
-                <Button onClick={loadGoogleMapsScript}>Retry Loading Map</Button>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        <div 
-          ref={mapRef} 
-          className="h-[500px] w-full rounded-md"
-        ></div>
-        
-        <div className="absolute right-4 top-4 flex flex-col space-y-2">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" className="bg-white/80 backdrop-blur-sm hover:bg-white" onClick={handleZoomIn}>
-                  <ZoomIn className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Zoom in</p>
-              </TooltipContent>
-            </Tooltip>
-            
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" className="bg-white/80 backdrop-blur-sm hover:bg-white" onClick={handleZoomOut}>
-                  <ZoomOut className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Zoom out</p>
-              </TooltipContent>
-            </Tooltip>
-            
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" className="bg-white/80 backdrop-blur-sm hover:bg-white" onClick={getUserLocation}>
-                  <Navigation className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Your location</p>
-              </TooltipContent>
-            </Tooltip>
-            
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant={activeTool === 'draw' ? "default" : "outline"} size="icon" className="bg-white/80 backdrop-blur-sm hover:bg-white" onClick={() => setMapMode('draw')}>
-                  <Pencil className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Draw field</p>
-              </TooltipContent>
-            </Tooltip>
-            
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant={activeTool === 'measure' ? "default" : "outline"} size="icon" className="bg-white/80 backdrop-blur-sm hover:bg-white" onClick={() => setMapMode('measure')}>
-                  <Ruler className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Measure distance</p>
-              </TooltipContent>
-            </Tooltip>
-            
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" className="bg-white/80 backdrop-blur-sm hover:bg-white" onClick={toggleFieldsLayer}>
-                  <Layers className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Toggle field boundaries</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      </CardContent>
-    </Card>
-  );
-});
-
-InteractiveMap.displayName = 'InteractiveMap';
-
-export default InteractiveMap;
+    if (map && mapInitialized
