@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import InteractiveMap from '@/components/mapping/InteractiveMap';
@@ -18,7 +17,7 @@ interface DevicesTabProps {
   activeMode: 'pan' | 'draw' | 'measure';
   devices: DeviceMarker[];
   fields: Field[];
-  zones: Zone[];
+  zones: Zone[]; // Add zones prop with default empty array
   location: { lat: number, lng: number } | null;
   newDevice: { name: string; type: 'sensor' | 'valve' | 'weather-station' };
   showAddDeviceDialog: boolean;
@@ -52,9 +51,10 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
   handleAddDevice,
   setDevices
 }, ref) => {
-  const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
+  // Replace "" with "", "none", or a specific unassigned value
   const [selectedFieldId, setSelectedFieldId] = useState<string>('');
   const [selectedZoneId, setSelectedZoneId] = useState<string>('');
+  const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
   const [selectedField, setSelectedField] = useState<Field | null>(null);
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
   const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null);
@@ -268,7 +268,7 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
                     <SelectValue placeholder="Select a field" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Fields</SelectItem>
+                    <SelectItem value="field_unassigned">All Fields</SelectItem>
                     {fields.map(field => (
                       <SelectItem key={field.id} value={field.id}>{field.name}</SelectItem>
                     ))}
@@ -287,7 +287,7 @@ const DevicesTab = forwardRef<any, DevicesTabProps>(({
                     <SelectValue placeholder={filteredZones.length === 0 ? "No zones in selected field" : "Select a zone"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Zones</SelectItem>
+                    <SelectItem value="zone_unassigned">All Zones</SelectItem>
                     {filteredZones.map(zone => (
                       <SelectItem key={zone.id} value={zone.id}>{zone.name}</SelectItem>
                     ))}

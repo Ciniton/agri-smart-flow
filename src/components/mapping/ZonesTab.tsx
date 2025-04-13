@@ -83,13 +83,14 @@ const ZonesTab = forwardRef<any, ZonesTabProps>(({
     }
   };
 
+  // Use 'field_unassigned' as a default unassigned value
   const handleFieldSelect = (fieldId: string) => {
-    setSelectedFieldId(fieldId);
+    setSelectedFieldId(fieldId || 'field_unassigned');
     
     // When updating newZone, make sure to preserve existing properties
     setNewZone({
       ...newZone,
-      fieldId
+      fieldId: fieldId || 'field_unassigned'
     });
     
     // Center the map on the selected field
@@ -228,6 +229,7 @@ const ZonesTab = forwardRef<any, ZonesTabProps>(({
                   <SelectValue placeholder="Select a field" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="field_unassigned">All Fields</SelectItem>
                   {fields.map(field => (
                     <SelectItem key={field.id} value={field.id}>
                       {field.name}
