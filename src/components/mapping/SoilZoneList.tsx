@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Field, SoilZone } from './types';
-import { SoilLegend } from './SoilLegend';
+import SoilLegend from './SoilLegend';
 import { Edit, MapPin, Trash2, ExternalLink } from 'lucide-react';
 
 interface SoilZoneListProps {
